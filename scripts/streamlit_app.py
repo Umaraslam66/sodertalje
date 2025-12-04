@@ -92,6 +92,15 @@ def load_endpoint_movements():
     return endpoint_df
 
 
+@st.cache_data
+def load_april10_traffic():
+    """Load April 10 overnight traffic data (22:00 - 02:00 window)."""
+    traffic_df = pd.read_csv(ANALYSIS_PATH / "april10_overnight_traffic.csv")
+    traffic_df['plandatumtid'] = pd.to_datetime(traffic_df['plandatumtid'])
+    station_order = pd.read_csv(ANALYSIS_PATH / "april10_station_order.csv")
+    return traffic_df, station_order
+
+
 def get_unique_paths(sequences_df):
     """Extract unique path variants from the sequences."""
     # Group by station_sequence and count
@@ -1118,6 +1127,170 @@ def show_endpoint_traffic(endpoint_df):
             st.write(operator_counts.head(10).to_frame('Count'))
 
 
+def show_april10_capacity(traffic_df, station_order):
+    """Show April 10 overnight traffic - ALL trains at route stations."""
+    st.header("🌙 April 10 Overnight - All Traffic")
+    
+    st.write("""
+    **Time Window:** April 10, 2024 22:00 → April 11, 2024 02:00 (4 hours around midnight)
+    
+    Shows **ALL trains** passing through stations on our route during this window.
+    - 🔵 **Blue lines** = Our route trains (202404108396 TO Södertälje)
+    - ⚫ **Gray lines** = Other trains using the same infrastructure
+    
+    Look for **gaps/white space** = potential capacity for new train paths!
+    """)
+    
+    # Create station to Y position mapping
+    station_to_y = dict(zip(station_order['station'], station_order['order']))
+    
+    # Stats
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Trains", traffic_df['taglank'].nunique())
+    with col2:
+        st.metric("Total Records", len(traffic_df))
+    with col3:
+        st.metric("Stations", len(station_order))
+    with col4:
+        # Our route train
+        our_train = '202404108396'
+        is_our_train = traffic_df['taglank'].astype(str) == our_train
+        st.metric("Our Train Records", is_our_train.sum())
+    
+    st.divider()
+    
+    # Build the time-space diagram
+    fig = go.Figure()
+    
+    # Base time for X-axis (midnight April 11)
+    base_time = pd.Timestamp('2024-04-11 00:00:00')
+    
+    # Process each train
+    our_train_id = '202404108396'
+    train_colors = {}
+    
+    for taglank in traffic_df['taglank'].unique():
+        train_data = traffic_df[traffic_df['taglank'] == taglank].sort_values('plandatumtid')
+        
+        if len(train_data) < 2:
+            continue
+        
+        # Calculate time as hours from midnight (negative for before midnight)
+        times = train_data['plandatumtid']
+        x_vals = [(t - base_time).total_seconds() / 3600 for t in times]
+        
+        # Get Y positions
+        y_vals = []
+        stations = []
+        for _, row in train_data.iterrows():
+            station = row['plats']
+            if station in station_to_y:
+                y_vals.append(station_to_y[station])
+                stations.append(station)
+        
+        if len(y_vals) < 2:
+            continue
+        
+        # Determine if this is our route train
+        is_our = str(taglank) == our_train_id
+        
+        if is_our:
+            color = '#2E86AB'  # Blue for our train
+            width = 4
+            opacity = 1.0
+            name = f"🔵 {taglank} (Our Route)"
+        else:
+            color = '#888888'  # Gray for other trains
+            width = 1.5
+            opacity = 0.5
+            name = str(taglank)
+        
+        # Create hover text
+        hover_texts = []
+        for i, (x, y, s) in enumerate(zip(x_vals[:len(y_vals)], y_vals, stations)):
+            h = int(x) if x >= 0 else int(x) + 24
+            m = int(abs(x % 1) * 60)
+            day = "Apr 11" if x >= 0 else "Apr 10"
+            hover_texts.append(f"<b>{taglank}</b><br>{s}<br>{day} {h:02d}:{m:02d}")
+        
+        fig.add_trace(go.Scatter(
+            x=x_vals[:len(y_vals)],
+            y=y_vals,
+            mode='lines+markers',
+            name=name,
+            line=dict(color=color, width=width),
+            marker=dict(size=4 if is_our else 2, color=color),
+            opacity=opacity,
+            text=hover_texts,
+            hovertemplate="%{text}<extra></extra>",
+            showlegend=is_our
+        ))
+    
+    # Update layout
+    fig.update_layout(
+        title="All Train Traffic - April 10 22:00 to April 11 02:00",
+        xaxis_title="Hours from Midnight (April 11)",
+        yaxis_title="Station",
+        height=800,
+        xaxis=dict(
+            range=[-2.5, 2.5],
+            dtick=0.5,
+            ticktext=[f"{int(h+24) if h < 0 else int(h):02d}:00" for h in [-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2]],
+            tickvals=[-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2],
+            gridcolor='lightgray',
+            zeroline=True,
+            zerolinecolor='red',
+            zerolinewidth=2
+        ),
+        yaxis=dict(
+            tickmode='array',
+            tickvals=list(range(len(station_order))),
+            ticktext=station_order['station'].tolist(),
+            autorange='reversed',  # Skandiahamnen at top
+            gridcolor='lightgray'
+        ),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02),
+        hovermode='closest'
+    )
+    
+    # Add midnight line annotation
+    fig.add_annotation(
+        x=0, y=-0.5,
+        text="← Apr 10 | Midnight | Apr 11 →",
+        showarrow=False,
+        yref='paper',
+        font=dict(color='red', size=12)
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Show train list
+    st.divider()
+    st.subheader("📋 Trains in Window")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**Our Route Train:**")
+        our_data = traffic_df[traffic_df['taglank'].astype(str) == our_train_id]
+        if len(our_data) > 0:
+            st.write(f"- **{our_train_id}** - {len(our_data)} station records")
+            first = our_data['plandatumtid'].min()
+            last = our_data['plandatumtid'].max()
+            st.write(f"  - First: {first.strftime('%H:%M')} at {our_data[our_data['plandatumtid'] == first]['plats'].iloc[0]}")
+            st.write(f"  - Last: {last.strftime('%H:%M')} at {our_data[our_data['plandatumtid'] == last]['plats'].iloc[0]}")
+    
+    with col2:
+        st.write("**Other Trains (sample):**")
+        other_trains = traffic_df[traffic_df['taglank'].astype(str) != our_train_id]['taglank'].unique()[:10]
+        for t in other_trains:
+            count = len(traffic_df[traffic_df['taglank'] == t])
+            st.write(f"- {t} ({count} records)")
+        if len(traffic_df['taglank'].unique()) > 11:
+            st.write(f"... and {len(traffic_df['taglank'].unique()) - 11} more trains")
+
+
 def main():
     """Main application."""
     
@@ -1127,10 +1300,11 @@ def main():
     
     page = st.sidebar.radio(
         "Navigation",
-        options=['Overview', 'Time-Space Diagram', 'Endpoint Traffic', 'Path Analysis', 'Slot Finder'],
+        options=['Overview', 'Time-Space Diagram', 'April 10 Capacity', 'Endpoint Traffic', 'Path Analysis', 'Slot Finder'],
         format_func=lambda x: {
             'Overview': '📊 Route Overview',
             'Time-Space Diagram': '📈 Time-Space Diagram',
+            'April 10 Capacity': '🌙 April 10 Overnight',
             'Endpoint Traffic': '🚉 Endpoint Traffic',
             'Path Analysis': '🛤️ Path Analysis',
             'Slot Finder': '🔍 Find Slots'
@@ -1148,10 +1322,10 @@ def main():
     Find available timeslots for 
     scheduling new freight trains.
     
-    **Endpoint Traffic:**
-    View ALL train movements at the 
-    terminal stations to identify 
-    available capacity windows.
+    **April 10 Overnight:**
+    See ALL trains using our route 
+    stations during the overnight 
+    window to find capacity gaps.
     
     **Time-Space Diagram:**
     Standard railway planning view 
@@ -1178,6 +1352,14 @@ def main():
         except Exception as e:
             st.error(f"Error loading delay data: {e}")
             st.info("Make sure route_delay_data.csv exists in the analysis folder.")
+    elif page == 'April 10 Capacity':
+        try:
+            with st.spinner("Loading April 10 traffic..."):
+                traffic_df, station_order = load_april10_traffic()
+            show_april10_capacity(traffic_df, station_order)
+        except Exception as e:
+            st.error(f"Error loading April 10 data: {e}")
+            st.info("Make sure april10_overnight_traffic.csv exists in the analysis folder.")
     elif page == 'Endpoint Traffic':
         try:
             with st.spinner("Loading endpoint movements..."):
