@@ -1,0 +1,5 @@
+Source: Data/Delay/*.parquet
+Columns: plandatumtid, plats, taglank
+Calculation: Count unique trains per station per hour
+Filter: Journeys on Skandiahamnen-Södertälje route, direction FROM_SODERTALJE
+Language: en

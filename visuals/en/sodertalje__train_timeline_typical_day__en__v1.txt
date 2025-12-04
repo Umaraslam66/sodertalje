@@ -1,0 +1,5 @@
+Source: Data/Delay/*.parquet, analysis/routes_all_journeys.csv
+Columns: plandatumtid, taglank, direction
+Calculation: Plot each train as a bar from departure to arrival time
+Filter: Typical weekday (2024-01-02) on Skandiahamnen-Södertälje route
+Language: en

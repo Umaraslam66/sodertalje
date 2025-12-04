@@ -1,0 +1,5 @@
+Källa: Data/Delay/*.parquet
+Kolumner: plandatumtid, plats, taglank
+Beräkning: Räkna unika tåg per station per timme
+Filter: Resor på Skandiahamnen-Södertälje rutten, riktning FROM_SODERTALJE
+Språk: sv

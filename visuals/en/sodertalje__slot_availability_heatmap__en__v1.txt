@@ -1,0 +1,5 @@
+Source: Data/Delay/*.parquet, analysis/*.csv
+Columns: plandatumtid, plats, taglank
+Calculation: Count available slots per hour by direction
+Filter: Journeys on Skandiahamnen-Södertälje route
+Language: en

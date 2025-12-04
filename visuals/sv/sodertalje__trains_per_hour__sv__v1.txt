@@ -1,0 +1,5 @@
+Källa: Data/Delay/*.parquet
+Kolumner: plandatumtid, plats, taglank
+Beräkning: Räkna tågpassager per timme vid nyckelstationer
+Filter: Resor på Skandiahamnen-Södertälje rutten
+Språk: sv

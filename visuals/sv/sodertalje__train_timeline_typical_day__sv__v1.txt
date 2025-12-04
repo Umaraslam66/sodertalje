@@ -1,0 +1,5 @@
+Källa: Data/Delay/*.parquet, analysis/routes_all_journeys.csv
+Kolumner: plandatumtid, taglank, direction
+Beräkning: Rita varje tåg som en stapel från avgång till ankomst
+Filter: Typisk vardag (2024-01-02) på Skandiahamnen-Södertälje rutten
+Språk: sv

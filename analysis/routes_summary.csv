@@ -1,0 +1,2 @@
+total_journeys,to_sodertalje_count,from_sodertalje_count,cancelled_count,unique_operators,operators,mean_duration_hours,median_duration_hours,date_range
+364,177,187,0,2,"['Green Cargo AB', 'CFL Cargo Sverige AB']",5.746199633699633,6.166666666666667,2024-01-01 to 2024-12-29

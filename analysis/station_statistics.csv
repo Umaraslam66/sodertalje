@@ -1,0 +1,147 @@
+station,total_trains,stop_count,stop_frequency,avg_dwell_min,median_dwell_min,max_dwell_min
+Brålanda,12,12,1.0,8.666666666666666,6.0,25.0
+Kil,12,12,1.0,7.333333333333333,4.0,15.0
+Nässjö c,2,2,1.0,25.0,25.0,25.0
+Strångsjö,2,2,1.0,5.0,5.0,5.0
+Falköpings c,715,714,0.9986013986013986,9.1484593837535,5.0,25.0
+Hallsbergs pbg,723,720,0.995850622406639,3.15,3.0,23.0
+Åmål,10,8,0.8,17.75,15.0,30.0
+Säffle,10,8,0.8,11.0,9.0,22.0
+Skåre,10,8,0.8,7.25,5.5,14.0
+Skebokvarn,552,376,0.6811594202898551,14.97340425531915,14.0,39.0
+Hallsbergs rangerbangård,545,366,0.671559633027523,6.191256830601093,0.0,79.0
+Skattkärr,9,6,0.6666666666666666,35.333333333333336,21.0,64.0
+Lerum,493,270,0.5476673427991886,12.881481481481481,13.0,13.0
+Laxå,498,270,0.5421686746987951,9.948148148148148,9.0,146.0
+Tösse,8,4,0.5,11.0,11.0,14.0
+Ånimskog,8,4,0.5,10.0,10.0,10.0
+Svartå,8,4,0.5,6.0,6.0,6.0
+Trollhättan,8,4,0.5,3.0,3.0,3.0
+Alvhem,7,2,0.2857142857142857,17.0,17.0,17.0
+Karlstads central,7,2,0.2857142857142857,82.0,82.0,82.0
+Köpmannebro,7,2,0.2857142857142857,16.0,16.0,16.0
+Ölme,7,2,0.2857142857142857,2.0,2.0,2.0
+Varpemossen,7,2,0.2857142857142857,18.0,18.0,18.0
+Kristinehamn,7,2,0.2857142857142857,9.0,9.0,9.0
+Grums,7,2,0.2857142857142857,14.0,14.0,14.0
+Edsvalla,7,2,0.2857142857142857,4.0,4.0,4.0
+Bjurhem,7,2,0.2857142857142857,30.0,30.0,30.0
+Stenkullen,411,106,0.25790754257907544,5.830188679245283,5.0,10.0
+Stenstorp,401,88,0.2194513715710723,4.0,4.0,4.0
+Kolke,371,14,0.03773584905660377,8.0,8.0,8.0
+Göteborg Kville,366,4,0.01092896174863388,5.5,5.5,6.0
+Stjärnhov,366,4,0.01092896174863388,8.0,8.0,8.0
+Floby,359,2,0.005571030640668524,14.0,14.0,14.0
+Bränninge,365,2,0.005479452054794521,12.0,12.0,12.0
+Gnesta,365,2,0.005479452054794521,24.0,24.0,24.0
+Bryngenäs,358,0,0.0,,,
+Byälven,2,0,0.0,,,
+Boxholm,1,0,0.0,,,
+Björnlunda,364,0,0.0,,,
+Björneborg,6,0,0.0,,,
+Bohus,6,0,0.0,,,
+Bankeryd,1,0,0.0,,,
+Alingsås,357,0,0.0,,,
+Aneby,1,0,0.0,,,
+Aspen,358,0,0.0,,,
+Aspedalen,358,0,0.0,,,
+Agnesberg,6,0,0.0,,,
+Algutsgården,358,0,0.0,,,
+Baggetorp,363,0,0.0,,,
+Flen,364,0,0.0,,,
+Huskvarna,1,0,0.0,,,
+Herrljunga västra,358,0,0.0,,,
+Herrljunga central,358,0,0.0,,,
+Hasselfors,6,0,0.0,,,
+Göteborg Sävenäs,358,0,0.0,,,
+Habo,1,0,0.0,,,
+Göteborg Marieholm,6,0,0.0,,,
+Högsjö,363,0,0.0,,,
+Katrineholms c,363,0,0.0,,,
+Karlstad Välsviken,6,0,0.0,,,
+Jönköpings c,1,0,0.0,,,
+Järna,364,0,0.0,,,
+Klingerud,6,0,0.0,,,
+Kimstad,1,0,0.0,,,
+Jonsered östra,358,0,0.0,,,
+Jonsered Västra,358,0,0.0,,,
+Gistad,1,0,0.0,,,
+Gamlarp,1,0,0.0,,,
+Frändefors,6,0,0.0,,,
+Frinnaryd,1,0,0.0,,,
+Forserum,1,0,0.0,,,
+Göteborg Lindholmen,364,0,0.0,,,
+Gårdsjö,357,0,0.0,,,
+Gripenberg,1,0,0.0,,,
+Göteborg Skandiahamnen,364,0,0.0,,,
+Flisby,1,0,0.0,,,
+Floda,358,0,0.0,,,
+Degerfors,6,0,0.0,,,
+Falköpings norra,357,0,0.0,,,
+Finnerödja,357,0,0.0,,,
+Fiskeby,1,0,0.0,,,
+Erikstad,6,0,0.0,,,
+Norsesund,358,0,0.0,,,
+Norrköpings c,1,0,0.0,,,
+Nol,6,0,0.0,,,
+Mölnbo,364,0,0.0,,,
+Mullsjö,1,0,0.0,,,
+Moholm,357,0,0.0,,,
+Mjölby,1,0,0.0,,,
+Mellerud,6,0,0.0,,,
+Mantorp,1,0,0.0,,,
+Lödöse södra,6,0,0.0,,,
+Linköpings c,1,0,0.0,,,
+Linghem,1,0,0.0,,,
+Lindekullen,1,0,0.0,,,
+Linddalen,363,0,0.0,,,
+Kilsmo,363,0,0.0,,,
+Källeryd,358,0,0.0,,,
+Skälebol,6,0,0.0,,,
+Simonstorp,1,0,0.0,,,
+Sandhem,1,0,0.0,,,
+Segmon,6,0,0.0,,,
+Regumatorp,357,0,0.0,,,
+Ralingsås,1,0,0.0,,,
+Pålsboda,362,0,0.0,,,
+Sköldinge,364,0,0.0,,,
+Sommen,1,0,0.0,,,
+Sparreholm,364,0,0.0,,,
+Pölsebo,364,0,0.0,,,
+Norsesund västra,358,0,0.0,,,
+Olskroken,248,0,0.0,,,
+Partille,358,0,0.0,,,
+Nyckelsjön,364,0,0.0,,,
+Nödinge,6,0,0.0,,,
+Strömtorp,6,0,0.0,,,
+Surte,6,0,0.0,,,
+Stenåsen,6,0,0.0,,,
+Stolpstugan,364,0,0.0,,,
+Slätte,357,0,0.0,,,
+Skövde c,357,0,0.0,,,
+Tenhult,1,0,0.0,,,
+Sävedalen,358,0,0.0,,,
+Tälle,362,0,0.0,,,
+Tranås,1,0,0.0,,,
+Töreboda,357,0,0.0,,,
+Vartofta,1,0,0.0,,,
+Velanda södra,6,0,0.0,,,
+Torbacken,6,0,0.0,,,
+Södertälje syd undre,364,0,0.0,,,
+Södertälje hamn,364,0,0.0,,,
+Vingåker,363,0,0.0,,,
+Vimnarp,1,0,0.0,,,
+Vikingstad,1,0,0.0,,,
+Vretstorp,363,0,0.0,,,
+Västra Bodarna,358,0,0.0,,,
+Väring,357,0,0.0,,,
+Värmlands Bro,6,0,0.0,,,
+Väse,6,0,0.0,,,
+Älgarås,357,0,0.0,,,
+Vårgårda,358,0,0.0,,,
+Vålberg,1,0,0.0,,,
+Älvängen,6,0,0.0,,,
+Åby södra,1,0,0.0,,,
+Äng,1,0,0.0,,,
+Östansjö,361,0,0.0,,,
+Öxnered,6,0,0.0,,,

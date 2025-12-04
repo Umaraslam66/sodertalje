@@ -1,0 +1,5 @@
+Källa: Data/Delay/*.parquet
+Kolumner: plandatumtid, plats, taglank
+Beräkning: Tidslucka mellan på varandra följande tåg vid varje station
+Filter: Resor på Skandiahamnen-Södertälje rutten, luckor < 24h
+Språk: sv

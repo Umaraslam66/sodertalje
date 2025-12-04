@@ -1,0 +1,5 @@
+Källa: Data/Delay/*.parquet, analysis/*.csv
+Kolumner: plandatumtid, plats, taglank
+Beräkning: Räkna tillgängliga slottar per timme och riktning
+Filter: Resor på Skandiahamnen-Södertälje rutten
+Språk: sv

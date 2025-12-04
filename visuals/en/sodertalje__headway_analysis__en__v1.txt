@@ -1,0 +1,5 @@
+Source: Data/Delay/*.parquet
+Columns: plandatumtid, plats, taglank
+Calculation: Time gap between consecutive trains at each station
+Filter: Journeys on Skandiahamnen-Södertälje route, gaps < 24h
+Language: en

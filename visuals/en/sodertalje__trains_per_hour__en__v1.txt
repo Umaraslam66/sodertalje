@@ -1,0 +1,5 @@
+Source: Data/Delay/*.parquet
+Columns: plandatumtid, plats, taglank
+Calculation: Count train passages per hour across key stations
+Filter: Journeys on Skandiahamnen-Södertälje route
+Language: en

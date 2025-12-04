@@ -1,0 +1,5 @@
+Source: Data/Delay/*.parquet, analysis/*.csv
+Columns: plandatumtid, plats, taglank
+Calculation: Check for conflicts at 15min headway intervals
+Filter: Journeys on Skandiahamnen-Södertälje route
+Language: en
