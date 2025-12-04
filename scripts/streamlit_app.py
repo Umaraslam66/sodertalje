@@ -94,8 +94,8 @@ def load_endpoint_movements():
 
 @st.cache_data
 def load_april10_traffic():
-    """Load April 10 overnight traffic data (22:00 - 02:00 window)."""
-    traffic_df = pd.read_csv(ANALYSIS_PATH / "april10_overnight_traffic.csv")
+    """Load April 10 traffic data (April 9 23:30 - April 10 23:30, 24 hours)."""
+    traffic_df = pd.read_csv(ANALYSIS_PATH / "april10_traffic.csv")
     traffic_df['plandatumtid'] = pd.to_datetime(traffic_df['plandatumtid'])
     station_order = pd.read_csv(ANALYSIS_PATH / "april10_station_order.csv")
     return traffic_df, station_order
@@ -1128,21 +1128,25 @@ def show_endpoint_traffic(endpoint_df):
 
 
 def show_april10_capacity(traffic_df, station_order):
-    """Show April 10 overnight traffic - ALL trains at route stations."""
-    st.header("🌙 April 10 Overnight - All Traffic")
+    """Show April 10 traffic - ALL trains at route stations for 24 hours."""
+    st.header("🌙 April 10 - All Traffic (24 Hours)")
     
     st.write("""
-    **Time Window:** April 10, 2024 22:00 → April 11, 2024 02:00 (4 hours around midnight)
+    **Time Window:** April 9, 2024 23:30 → April 10, 2024 23:30 (24 hours)
     
     Shows **ALL trains** passing through stations on our route during this window.
-    - 🔵 **Blue lines** = Our route trains (202404108396 TO Södertälje)
-    - ⚫ **Gray lines** = Other trains using the same infrastructure
+    - 🔵 **Blue** = Our route trains (202404108312 FROM, 202404108396 TO Södertälje)
+    - ⚫ **Gray** = Other trains using the same infrastructure
     
+    **Stops** appear as horizontal lines (same station, different times).
     Look for **gaps/white space** = potential capacity for new train paths!
     """)
     
     # Create station to Y position mapping
     station_to_y = dict(zip(station_order['station'], station_order['order']))
+    
+    # Our route trains on April 10
+    our_trains = ['202404108312', '202404108396']
     
     # Stats
     col1, col2, col3, col4 = st.columns(4)
@@ -1153,95 +1157,146 @@ def show_april10_capacity(traffic_df, station_order):
     with col3:
         st.metric("Stations", len(station_order))
     with col4:
-        # Our route train
-        our_train = '202404108396'
-        is_our_train = traffic_df['taglank'].astype(str) == our_train
-        st.metric("Our Train Records", is_our_train.sum())
+        our_records = traffic_df[traffic_df['taglank'].astype(str).isin(our_trains)]
+        st.metric("Our Route Records", len(our_records))
+    
+    st.divider()
+    
+    # Display options
+    st.subheader("⚙️ Display Options")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        show_mode = st.radio(
+            "Display Mode",
+            options=['Lines + Points', 'Lines Only', 'Points Only'],
+            index=0,
+            horizontal=True
+        )
+    
+    with col2:
+        show_stops = st.checkbox("Highlight Stops (dwell time)", value=True)
+    
+    with col3:
+        show_other_trains = st.checkbox("Show Other Trains", value=True)
     
     st.divider()
     
     # Build the time-space diagram
     fig = go.Figure()
     
-    # Base time for X-axis (midnight April 11)
-    base_time = pd.Timestamp('2024-04-11 00:00:00')
+    # Base time for X-axis (midnight April 10)
+    base_time = pd.Timestamp('2024-04-10 00:00:00')
+    
+    # Determine plot mode
+    if show_mode == 'Lines + Points':
+        plot_mode = 'lines+markers'
+    elif show_mode == 'Lines Only':
+        plot_mode = 'lines'
+    else:
+        plot_mode = 'markers'
     
     # Process each train
-    our_train_id = '202404108396'
-    train_colors = {}
+    trains_to_plot = traffic_df['taglank'].unique()
     
-    for taglank in traffic_df['taglank'].unique():
+    for taglank in trains_to_plot:
         train_data = traffic_df[traffic_df['taglank'] == taglank].sort_values('plandatumtid')
         
-        if len(train_data) < 2:
+        # Skip if not showing other trains
+        is_our = str(taglank) in our_trains
+        if not is_our and not show_other_trains:
             continue
         
-        # Calculate time as hours from midnight (negative for before midnight)
+        if len(train_data) < 1:
+            continue
+        
+        # Calculate time as hours from midnight April 10
         times = train_data['plandatumtid']
         x_vals = [(t - base_time).total_seconds() / 3600 for t in times]
         
-        # Get Y positions
+        # Get Y positions and stations
         y_vals = []
         stations = []
-        for _, row in train_data.iterrows():
+        x_filtered = []
+        for i, (_, row) in enumerate(train_data.iterrows()):
             station = row['plats']
             if station in station_to_y:
                 y_vals.append(station_to_y[station])
                 stations.append(station)
+                x_filtered.append(x_vals[i])
         
-        if len(y_vals) < 2:
+        if len(y_vals) < 1:
             continue
         
-        # Determine if this is our route train
-        is_our = str(taglank) == our_train_id
-        
+        # Determine styling
         if is_our:
-            color = '#2E86AB'  # Blue for our train
-            width = 4
+            if str(taglank) == '202404108396':
+                color = '#2E86AB'  # Blue for TO train
+                name = f"🔵 {taglank} (TO Södertälje)"
+            else:
+                color = '#E94F37'  # Red for FROM train
+                name = f"🔴 {taglank} (FROM Södertälje)"
+            width = 3
             opacity = 1.0
-            name = f"🔵 {taglank} (Our Route)"
+            marker_size = 6
         else:
             color = '#888888'  # Gray for other trains
-            width = 1.5
-            opacity = 0.5
+            width = 1
+            opacity = 0.4
             name = str(taglank)
+            marker_size = 3
         
         # Create hover text
         hover_texts = []
-        for i, (x, y, s) in enumerate(zip(x_vals[:len(y_vals)], y_vals, stations)):
-            h = int(x) if x >= 0 else int(x) + 24
-            m = int(abs(x % 1) * 60)
-            day = "Apr 11" if x >= 0 else "Apr 10"
+        for x, y, s in zip(x_filtered, y_vals, stations):
+            h = int(x) % 24
+            m = int((x % 1) * 60)
+            day = "Apr 10" if 0 <= x < 24 else ("Apr 9" if x < 0 else "Apr 11")
             hover_texts.append(f"<b>{taglank}</b><br>{s}<br>{day} {h:02d}:{m:02d}")
         
+        # Main trace
         fig.add_trace(go.Scatter(
-            x=x_vals[:len(y_vals)],
+            x=x_filtered,
             y=y_vals,
-            mode='lines+markers',
+            mode=plot_mode,
             name=name,
             line=dict(color=color, width=width),
-            marker=dict(size=4 if is_our else 2, color=color),
+            marker=dict(size=marker_size, color=color),
             opacity=opacity,
             text=hover_texts,
             hovertemplate="%{text}<extra></extra>",
             showlegend=is_our
         ))
+        
+        # Add stop highlights (horizontal lines for same station)
+        if show_stops and len(y_vals) >= 2:
+            for j in range(len(y_vals) - 1):
+                if y_vals[j] == y_vals[j + 1]:  # Same station = stop
+                    fig.add_trace(go.Scatter(
+                        x=[x_filtered[j], x_filtered[j + 1]],
+                        y=[y_vals[j], y_vals[j + 1]],
+                        mode='lines',
+                        line=dict(color=color, width=width * 2.5),
+                        opacity=min(opacity + 0.2, 1.0),
+                        showlegend=False,
+                        hoverinfo='skip'
+                    ))
     
     # Update layout
     fig.update_layout(
-        title="All Train Traffic - April 10 22:00 to April 11 02:00",
-        xaxis_title="Hours from Midnight (April 11)",
+        title="All Train Traffic - April 9 23:30 to April 10 23:30 (24 hours)",
+        xaxis_title="Time (hours from midnight April 10)",
         yaxis_title="Station",
-        height=800,
+        height=900,
         xaxis=dict(
-            range=[-2.5, 2.5],
-            dtick=0.5,
-            ticktext=[f"{int(h+24) if h < 0 else int(h):02d}:00" for h in [-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2]],
-            tickvals=[-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2],
+            range=[-0.5, 24],
+            dtick=2,
+            ticktext=[f"{int(h):02d}:00" for h in range(0, 25, 2)],
+            tickvals=list(range(0, 25, 2)),
             gridcolor='lightgray',
             zeroline=True,
-            zerolinecolor='red',
-            zerolinewidth=2
+            zerolinecolor='gray',
+            zerolinewidth=1
         ),
         yaxis=dict(
             tickmode='array',
@@ -1254,41 +1309,54 @@ def show_april10_capacity(traffic_df, station_order):
         hovermode='closest'
     )
     
-    # Add midnight line annotation
-    fig.add_annotation(
-        x=0, y=-0.5,
-        text="← Apr 10 | Midnight | Apr 11 →",
-        showarrow=False,
-        yref='paper',
-        font=dict(color='red', size=12)
-    )
-    
     st.plotly_chart(fig, use_container_width=True)
     
     # Show train list
     st.divider()
-    st.subheader("📋 Trains in Window")
+    st.subheader("📋 Our Route Trains on April 10")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.write("**Our Route Train:**")
-        our_data = traffic_df[traffic_df['taglank'].astype(str) == our_train_id]
-        if len(our_data) > 0:
-            st.write(f"- **{our_train_id}** - {len(our_data)} station records")
-            first = our_data['plandatumtid'].min()
-            last = our_data['plandatumtid'].max()
-            st.write(f"  - First: {first.strftime('%H:%M')} at {our_data[our_data['plandatumtid'] == first]['plats'].iloc[0]}")
-            st.write(f"  - Last: {last.strftime('%H:%M')} at {our_data[our_data['plandatumtid'] == last]['plats'].iloc[0]}")
+        st.write("**🔴 FROM Södertälje (202404108312):**")
+        from_data = traffic_df[traffic_df['taglank'].astype(str) == '202404108312']
+        if len(from_data) > 0:
+            st.write(f"- {len(from_data)} station records")
+            first = from_data['plandatumtid'].min()
+            last = from_data['plandatumtid'].max()
+            st.write(f"- Departs: {first.strftime('%H:%M')} from {from_data[from_data['plandatumtid'] == first]['plats'].iloc[0]}")
+            st.write(f"- Arrives: {last.strftime('%H:%M')} at {from_data[from_data['plandatumtid'] == last]['plats'].iloc[0]}")
     
     with col2:
-        st.write("**Other Trains (sample):**")
-        other_trains = traffic_df[traffic_df['taglank'].astype(str) != our_train_id]['taglank'].unique()[:10]
-        for t in other_trains:
-            count = len(traffic_df[traffic_df['taglank'] == t])
-            st.write(f"- {t} ({count} records)")
-        if len(traffic_df['taglank'].unique()) > 11:
-            st.write(f"... and {len(traffic_df['taglank'].unique()) - 11} more trains")
+        st.write("**🔵 TO Södertälje (202404108396):**")
+        to_data = traffic_df[traffic_df['taglank'].astype(str) == '202404108396']
+        if len(to_data) > 0:
+            st.write(f"- {len(to_data)} station records")
+            first = to_data['plandatumtid'].min()
+            last = to_data['plandatumtid'].max()
+            st.write(f"- Departs: {first.strftime('%H:%M')} from {to_data[to_data['plandatumtid'] == first]['plats'].iloc[0]}")
+            st.write(f"- Arrives: {last.strftime('%H:%M')} at {to_data[to_data['plandatumtid'] == last]['plats'].iloc[0]}")
+    
+    # Statistics about other trains
+    st.divider()
+    st.subheader("📊 Other Traffic Statistics")
+    
+    other_trains_df = traffic_df[~traffic_df['taglank'].astype(str).isin(our_trains)]
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Other Trains", other_trains_df['taglank'].nunique())
+    with col2:
+        # Trains at terminals
+        terminal_stations = ['Göteborg Skandiahamnen', 'Södertälje hamn']
+        terminal_traffic = other_trains_df[other_trains_df['plats'].isin(terminal_stations)]
+        st.metric("Terminal Visits", len(terminal_traffic))
+    with col3:
+        # Busiest intermediate station
+        intermediate = other_trains_df[~other_trains_df['plats'].isin(terminal_stations)]
+        if len(intermediate) > 0:
+            busiest = intermediate.groupby('plats').size().idxmax()
+            st.metric("Busiest Station", busiest[:20] + "...")
 
 
 def main():
