@@ -1,0 +1,656 @@
+{
+  "FROM_SODERTALJE": [
+    {
+      "from": "S\u00f6dert\u00e4lje hamn",
+      "to": "S\u00f6dert\u00e4lje syd undre",
+      "minutes": 2.0
+    },
+    {
+      "from": "S\u00f6dert\u00e4lje syd undre",
+      "to": "Br\u00e4nninge",
+      "minutes": 2.0
+    },
+    {
+      "from": "Br\u00e4nninge",
+      "to": "J\u00e4rna",
+      "minutes": 4.0
+    },
+    {
+      "from": "J\u00e4rna",
+      "to": "M\u00f6lnbo",
+      "minutes": 7.0
+    },
+    {
+      "from": "M\u00f6lnbo",
+      "to": "Gnesta",
+      "minutes": 4.0
+    },
+    {
+      "from": "Gnesta",
+      "to": "Kolke",
+      "minutes": 4.0
+    },
+    {
+      "from": "Kolke",
+      "to": "Bj\u00f6rnlunda",
+      "minutes": 2.0
+    },
+    {
+      "from": "Bj\u00f6rnlunda",
+      "to": "Stj\u00e4rnhov",
+      "minutes": 5.0
+    },
+    {
+      "from": "Stj\u00e4rnhov",
+      "to": "Nyckelsj\u00f6n",
+      "minutes": 6.0
+    },
+    {
+      "from": "Nyckelsj\u00f6n",
+      "to": "Sparreholm",
+      "minutes": 2.0
+    },
+    {
+      "from": "Sparreholm",
+      "to": "Skebokvarn",
+      "minutes": 5.0
+    },
+    {
+      "from": "Skebokvarn",
+      "to": "Flen",
+      "minutes": 7.0
+    },
+    {
+      "from": "Flen",
+      "to": "Sk\u00f6ldinge",
+      "minutes": 5.0
+    },
+    {
+      "from": "Sk\u00f6ldinge",
+      "to": "Stolpstugan",
+      "minutes": 4.0
+    },
+    {
+      "from": "Stolpstugan",
+      "to": "Katrineholms c",
+      "minutes": 5.0
+    },
+    {
+      "from": "Katrineholms c",
+      "to": "Baggetorp",
+      "minutes": 5.0
+    },
+    {
+      "from": "Baggetorp",
+      "to": "Ving\u00e5ker",
+      "minutes": 8.0
+    },
+    {
+      "from": "Ving\u00e5ker",
+      "to": "H\u00f6gsj\u00f6",
+      "minutes": 5.0
+    },
+    {
+      "from": "H\u00f6gsj\u00f6",
+      "to": "Kilsmo",
+      "minutes": 8.0
+    },
+    {
+      "from": "Kilsmo",
+      "to": "P\u00e5lsboda",
+      "minutes": 7.0
+    },
+    {
+      "from": "P\u00e5lsboda",
+      "to": "Hallsbergs pbg",
+      "minutes": 10.0
+    },
+    {
+      "from": "Hallsbergs pbg",
+      "to": "Hallsbergs rangerbang\u00e5rd",
+      "minutes": 8.0
+    },
+    {
+      "from": "Hallsbergs rangerbang\u00e5rd",
+      "to": "T\u00e4lle",
+      "minutes": 12.0
+    },
+    {
+      "from": "T\u00e4lle",
+      "to": "\u00d6stansj\u00f6",
+      "minutes": 3.0
+    },
+    {
+      "from": "\u00d6stansj\u00f6",
+      "to": "Vretstorp",
+      "minutes": 5.0
+    },
+    {
+      "from": "Vretstorp",
+      "to": "Linddalen",
+      "minutes": 3.0
+    },
+    {
+      "from": "Linddalen",
+      "to": "Lax\u00e5",
+      "minutes": 6.0
+    },
+    {
+      "from": "Lax\u00e5",
+      "to": "Finner\u00f6dja",
+      "minutes": 11.0
+    },
+    {
+      "from": "Finner\u00f6dja",
+      "to": "G\u00e5rdsj\u00f6",
+      "minutes": 6.0
+    },
+    {
+      "from": "G\u00e5rdsj\u00f6",
+      "to": "\u00c4lgar\u00e5s",
+      "minutes": 5.0
+    },
+    {
+      "from": "\u00c4lgar\u00e5s",
+      "to": "Sl\u00e4tte",
+      "minutes": 3.0
+    },
+    {
+      "from": "Sl\u00e4tte",
+      "to": "T\u00f6reboda",
+      "minutes": 5.0
+    },
+    {
+      "from": "T\u00f6reboda",
+      "to": "Moholm",
+      "minutes": 7.0
+    },
+    {
+      "from": "Moholm",
+      "to": "V\u00e4ring",
+      "minutes": 7.0
+    },
+    {
+      "from": "V\u00e4ring",
+      "to": "Sk\u00f6vde c",
+      "minutes": 9.0
+    },
+    {
+      "from": "Sk\u00f6vde c",
+      "to": "Regumatorp",
+      "minutes": 6.0
+    },
+    {
+      "from": "Regumatorp",
+      "to": "Stenstorp",
+      "minutes": 4.0
+    },
+    {
+      "from": "Stenstorp",
+      "to": "Falk\u00f6pings norra",
+      "minutes": 8.0
+    },
+    {
+      "from": "Falk\u00f6pings norra",
+      "to": "Falk\u00f6pings c",
+      "minutes": 3.0
+    },
+    {
+      "from": "Falk\u00f6pings c",
+      "to": "Floby",
+      "minutes": 11.0
+    },
+    {
+      "from": "Floby",
+      "to": "K\u00e4lleryd",
+      "minutes": 5.0
+    },
+    {
+      "from": "K\u00e4lleryd",
+      "to": "Herrljunga central",
+      "minutes": 7.0
+    },
+    {
+      "from": "Herrljunga central",
+      "to": "Herrljunga v\u00e4stra",
+      "minutes": 3.0
+    },
+    {
+      "from": "Herrljunga v\u00e4stra",
+      "to": "V\u00e5rg\u00e5rda",
+      "minutes": 6.0
+    },
+    {
+      "from": "V\u00e5rg\u00e5rda",
+      "to": "Algutsg\u00e5rden",
+      "minutes": 6.0
+    },
+    {
+      "from": "Algutsg\u00e5rden",
+      "to": "Alings\u00e5s",
+      "minutes": 7.0
+    },
+    {
+      "from": "Alings\u00e5s",
+      "to": "Bryngen\u00e4s",
+      "minutes": 3.0
+    },
+    {
+      "from": "Bryngen\u00e4s",
+      "to": "V\u00e4stra Bodarna",
+      "minutes": 1.0
+    },
+    {
+      "from": "V\u00e4stra Bodarna",
+      "to": "Norsesund",
+      "minutes": 3.0
+    },
+    {
+      "from": "Norsesund",
+      "to": "Norsesund v\u00e4stra",
+      "minutes": 0.0
+    },
+    {
+      "from": "Norsesund v\u00e4stra",
+      "to": "Floda",
+      "minutes": 5.0
+    },
+    {
+      "from": "Floda",
+      "to": "Stenkullen",
+      "minutes": 2.0
+    },
+    {
+      "from": "Stenkullen",
+      "to": "Lerum",
+      "minutes": 4.0
+    },
+    {
+      "from": "Lerum",
+      "to": "Aspedalen",
+      "minutes": 1.0
+    },
+    {
+      "from": "Aspedalen",
+      "to": "Aspen",
+      "minutes": 2.0
+    },
+    {
+      "from": "Aspen",
+      "to": "Jonsered V\u00e4stra",
+      "minutes": 2.0
+    },
+    {
+      "from": "Jonsered V\u00e4stra",
+      "to": "Jonsered \u00f6stra",
+      "minutes": 0.0
+    },
+    {
+      "from": "Jonsered \u00f6stra",
+      "to": "Partille",
+      "minutes": 3.0
+    },
+    {
+      "from": "Partille",
+      "to": "S\u00e4vedalen",
+      "minutes": 2.0
+    },
+    {
+      "from": "S\u00e4vedalen",
+      "to": "G\u00f6teborg S\u00e4ven\u00e4s",
+      "minutes": 2.0
+    },
+    {
+      "from": "G\u00f6teborg S\u00e4ven\u00e4s",
+      "to": "Olskroken",
+      "minutes": 1.0
+    },
+    {
+      "from": "Olskroken",
+      "to": "G\u00f6teborg Kville",
+      "minutes": 5.0
+    },
+    {
+      "from": "G\u00f6teborg Kville",
+      "to": "G\u00f6teborg Lindholmen",
+      "minutes": 4.0
+    },
+    {
+      "from": "G\u00f6teborg Lindholmen",
+      "to": "P\u00f6lsebo",
+      "minutes": 3.0
+    },
+    {
+      "from": "P\u00f6lsebo",
+      "to": "G\u00f6teborg Skandiahamnen",
+      "minutes": 7.0
+    }
+  ],
+  "TO_SODERTALJE": [
+    {
+      "from": "G\u00f6teborg Skandiahamnen",
+      "to": "P\u00f6lsebo",
+      "minutes": 6.0
+    },
+    {
+      "from": "P\u00f6lsebo",
+      "to": "G\u00f6teborg Lindholmen",
+      "minutes": 3.0
+    },
+    {
+      "from": "G\u00f6teborg Lindholmen",
+      "to": "G\u00f6teborg Kville",
+      "minutes": 5.0
+    },
+    {
+      "from": "G\u00f6teborg Kville",
+      "to": "Olskroken",
+      "minutes": 4.0
+    },
+    {
+      "from": "Olskroken",
+      "to": "G\u00f6teborg S\u00e4ven\u00e4s",
+      "minutes": 1.0
+    },
+    {
+      "from": "G\u00f6teborg S\u00e4ven\u00e4s",
+      "to": "S\u00e4vedalen",
+      "minutes": 4.0
+    },
+    {
+      "from": "S\u00e4vedalen",
+      "to": "Partille",
+      "minutes": 3.0
+    },
+    {
+      "from": "Partille",
+      "to": "Jonsered V\u00e4stra",
+      "minutes": 3.0
+    },
+    {
+      "from": "Jonsered V\u00e4stra",
+      "to": "Jonsered \u00f6stra",
+      "minutes": 1.0
+    },
+    {
+      "from": "Jonsered \u00f6stra",
+      "to": "Aspen",
+      "minutes": 2.0
+    },
+    {
+      "from": "Aspen",
+      "to": "Aspedalen",
+      "minutes": 1.0
+    },
+    {
+      "from": "Aspedalen",
+      "to": "Lerum",
+      "minutes": 0.0
+    },
+    {
+      "from": "Lerum",
+      "to": "Stenkullen",
+      "minutes": 3.0
+    },
+    {
+      "from": "Stenkullen",
+      "to": "Floda",
+      "minutes": 2.0
+    },
+    {
+      "from": "Floda",
+      "to": "Norsesund v\u00e4stra",
+      "minutes": 4.0
+    },
+    {
+      "from": "Norsesund v\u00e4stra",
+      "to": "Norsesund",
+      "minutes": 0.0
+    },
+    {
+      "from": "Norsesund",
+      "to": "V\u00e4stra Bodarna",
+      "minutes": 2.0
+    },
+    {
+      "from": "V\u00e4stra Bodarna",
+      "to": "Bryngen\u00e4s",
+      "minutes": 1.0
+    },
+    {
+      "from": "Bryngen\u00e4s",
+      "to": "Alings\u00e5s",
+      "minutes": 4.0
+    },
+    {
+      "from": "Alings\u00e5s",
+      "to": "Algutsg\u00e5rden",
+      "minutes": 6.0
+    },
+    {
+      "from": "Algutsg\u00e5rden",
+      "to": "V\u00e5rg\u00e5rda",
+      "minutes": 6.0
+    },
+    {
+      "from": "V\u00e5rg\u00e5rda",
+      "to": "Herrljunga v\u00e4stra",
+      "minutes": 7.0
+    },
+    {
+      "from": "Herrljunga v\u00e4stra",
+      "to": "Herrljunga central",
+      "minutes": 2.0
+    },
+    {
+      "from": "Herrljunga central",
+      "to": "K\u00e4lleryd",
+      "minutes": 7.0
+    },
+    {
+      "from": "K\u00e4lleryd",
+      "to": "Floby",
+      "minutes": 5.0
+    },
+    {
+      "from": "Floby",
+      "to": "Falk\u00f6pings c",
+      "minutes": 10.0
+    },
+    {
+      "from": "Falk\u00f6pings c",
+      "to": "Falk\u00f6pings norra",
+      "minutes": 3.0
+    },
+    {
+      "from": "Falk\u00f6pings norra",
+      "to": "Stenstorp",
+      "minutes": 8.0
+    },
+    {
+      "from": "Stenstorp",
+      "to": "Regumatorp",
+      "minutes": 4.0
+    },
+    {
+      "from": "Regumatorp",
+      "to": "Sk\u00f6vde c",
+      "minutes": 5.0
+    },
+    {
+      "from": "Sk\u00f6vde c",
+      "to": "V\u00e4ring",
+      "minutes": 9.0
+    },
+    {
+      "from": "V\u00e4ring",
+      "to": "Moholm",
+      "minutes": 8.0
+    },
+    {
+      "from": "Moholm",
+      "to": "T\u00f6reboda",
+      "minutes": 7.0
+    },
+    {
+      "from": "T\u00f6reboda",
+      "to": "Sl\u00e4tte",
+      "minutes": 5.0
+    },
+    {
+      "from": "Sl\u00e4tte",
+      "to": "\u00c4lgar\u00e5s",
+      "minutes": 4.0
+    },
+    {
+      "from": "\u00c4lgar\u00e5s",
+      "to": "G\u00e5rdsj\u00f6",
+      "minutes": 5.0
+    },
+    {
+      "from": "G\u00e5rdsj\u00f6",
+      "to": "Finner\u00f6dja",
+      "minutes": 5.0
+    },
+    {
+      "from": "Finner\u00f6dja",
+      "to": "Lax\u00e5",
+      "minutes": 10.0
+    },
+    {
+      "from": "Lax\u00e5",
+      "to": "Linddalen",
+      "minutes": 4.0
+    },
+    {
+      "from": "Linddalen",
+      "to": "Vretstorp",
+      "minutes": 4.0
+    },
+    {
+      "from": "Vretstorp",
+      "to": "\u00d6stansj\u00f6",
+      "minutes": 5.0
+    },
+    {
+      "from": "\u00d6stansj\u00f6",
+      "to": "T\u00e4lle",
+      "minutes": 1.0
+    },
+    {
+      "from": "T\u00e4lle",
+      "to": "Hallsbergs rangerbang\u00e5rd",
+      "minutes": 2.0
+    },
+    {
+      "from": "Hallsbergs rangerbang\u00e5rd",
+      "to": "Hallsbergs pbg",
+      "minutes": 4.0
+    },
+    {
+      "from": "Hallsbergs pbg",
+      "to": "P\u00e5lsboda",
+      "minutes": 13.0
+    },
+    {
+      "from": "P\u00e5lsboda",
+      "to": "Kilsmo",
+      "minutes": 8.0
+    },
+    {
+      "from": "Kilsmo",
+      "to": "H\u00f6gsj\u00f6",
+      "minutes": 7.0
+    },
+    {
+      "from": "H\u00f6gsj\u00f6",
+      "to": "Ving\u00e5ker",
+      "minutes": 6.0
+    },
+    {
+      "from": "Ving\u00e5ker",
+      "to": "Baggetorp",
+      "minutes": 8.0
+    },
+    {
+      "from": "Baggetorp",
+      "to": "Katrineholms c",
+      "minutes": 6.0
+    },
+    {
+      "from": "Katrineholms c",
+      "to": "Stolpstugan",
+      "minutes": 4.0
+    },
+    {
+      "from": "Stolpstugan",
+      "to": "Sk\u00f6ldinge",
+      "minutes": 5.0
+    },
+    {
+      "from": "Sk\u00f6ldinge",
+      "to": "Flen",
+      "minutes": 5.0
+    },
+    {
+      "from": "Flen",
+      "to": "Skebokvarn",
+      "minutes": 5.0
+    },
+    {
+      "from": "Skebokvarn",
+      "to": "Sparreholm",
+      "minutes": 5.0
+    },
+    {
+      "from": "Sparreholm",
+      "to": "Nyckelsj\u00f6n",
+      "minutes": 2.0
+    },
+    {
+      "from": "Nyckelsj\u00f6n",
+      "to": "Stj\u00e4rnhov",
+      "minutes": 6.0
+    },
+    {
+      "from": "Stj\u00e4rnhov",
+      "to": "Bj\u00f6rnlunda",
+      "minutes": 6.0
+    },
+    {
+      "from": "Bj\u00f6rnlunda",
+      "to": "Kolke",
+      "minutes": 2.0
+    },
+    {
+      "from": "Kolke",
+      "to": "Gnesta",
+      "minutes": 4.0
+    },
+    {
+      "from": "Gnesta",
+      "to": "M\u00f6lnbo",
+      "minutes": 4.0
+    },
+    {
+      "from": "M\u00f6lnbo",
+      "to": "J\u00e4rna",
+      "minutes": 8.0
+    },
+    {
+      "from": "J\u00e4rna",
+      "to": "Br\u00e4nninge",
+      "minutes": 3.0
+    },
+    {
+      "from": "Br\u00e4nninge",
+      "to": "S\u00f6dert\u00e4lje syd undre",
+      "minutes": 2.0
+    },
+    {
+      "from": "S\u00f6dert\u00e4lje syd undre",
+      "to": "S\u00f6dert\u00e4lje hamn",
+      "minutes": 3.0
+    }
+  ]
+}

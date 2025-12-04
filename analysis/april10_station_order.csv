@@ -1,67 +1,67 @@
-station,order
-Göteborg Skandiahamnen,0
-Pölsebo,1
-Göteborg Lindholmen,2
-Göteborg Kville,3
-Olskroken,4
-Göteborg Sävenäs,5
-Sävedalen,6
-Partille,7
-Jonsered Västra,8
-Jonsered östra,9
-Aspen,10
-Aspedalen,11
-Lerum,12
-Stenkullen,13
-Floda,14
-Norsesund västra,15
-Norsesund,16
-Västra Bodarna,17
-Bryngenäs,18
-Alingsås,19
-Algutsgården,20
-Vårgårda,21
-Herrljunga västra,22
-Herrljunga central,23
-Källeryd,24
-Floby,25
-Falköpings c,26
-Falköpings norra,27
-Stenstorp,28
-Regumatorp,29
-Skövde c,30
-Väring,31
-Moholm,32
-Töreboda,33
-Slätte,34
-Älgarås,35
-Gårdsjö,36
-Finnerödja,37
-Laxå,38
-Linddalen,39
-Vretstorp,40
-Östansjö,41
-Tälle,42
-Hallsbergs rangerbangård,43
-Hallsbergs pbg,44
-Pålsboda,45
-Kilsmo,46
-Högsjö,47
-Vingåker,48
-Baggetorp,49
-Katrineholms c,50
-Stolpstugan,51
-Sköldinge,52
-Flen,53
-Skebokvarn,54
-Sparreholm,55
-Nyckelsjön,56
-Stjärnhov,57
-Björnlunda,58
-Kolke,59
-Gnesta,60
-Mölnbo,61
-Järna,62
-Bränninge,63
-Södertälje syd undre,64
-Södertälje hamn,65
+station,order,is_stop
+Göteborg Skandiahamnen,0,False
+Pölsebo,1,False
+Göteborg Lindholmen,2,False
+Göteborg Kville,3,False
+Olskroken,4,False
+Göteborg Sävenäs,5,False
+Sävedalen,6,False
+Partille,7,False
+Jonsered Västra,8,False
+Jonsered östra,9,False
+Aspen,10,False
+Aspedalen,11,False
+Lerum,12,True
+Stenkullen,13,False
+Floda,14,False
+Norsesund västra,15,False
+Norsesund,16,False
+Västra Bodarna,17,False
+Bryngenäs,18,False
+Alingsås,19,False
+Algutsgården,20,False
+Vårgårda,21,False
+Herrljunga västra,22,False
+Herrljunga central,23,False
+Källeryd,24,False
+Floby,25,False
+Falköpings c,26,True
+Falköpings norra,27,False
+Stenstorp,28,False
+Regumatorp,29,False
+Skövde c,30,False
+Väring,31,False
+Moholm,32,False
+Töreboda,33,False
+Slätte,34,False
+Älgarås,35,False
+Gårdsjö,36,False
+Finnerödja,37,False
+Laxå,38,True
+Linddalen,39,False
+Vretstorp,40,False
+Östansjö,41,False
+Tälle,42,False
+Hallsbergs rangerbangård,43,True
+Hallsbergs pbg,44,True
+Pålsboda,45,False
+Kilsmo,46,False
+Högsjö,47,False
+Vingåker,48,False
+Baggetorp,49,False
+Katrineholms c,50,False
+Stolpstugan,51,False
+Sköldinge,52,False
+Flen,53,False
+Skebokvarn,54,True
+Sparreholm,55,False
+Nyckelsjön,56,False
+Stjärnhov,57,False
+Björnlunda,58,False
+Kolke,59,False
+Gnesta,60,False
+Mölnbo,61,False
+Järna,62,False
+Bränninge,63,False
+Södertälje syd undre,64,False
+Södertälje hamn,65,False

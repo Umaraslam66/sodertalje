@@ -1127,62 +1127,291 @@ def show_endpoint_traffic(endpoint_df):
             st.write(operator_counts.head(10).to_frame('Count'))
 
 
+def load_runtime_templates():
+    """Load runtime templates from JSON file."""
+    import json
+    template_file = ANALYSIS_PATH / "runtime_templates.json"
+    if template_file.exists():
+        with open(template_file, 'r') as f:
+            return json.load(f)
+    return None
+
+
 def show_april10_capacity(traffic_df, station_order):
-    """Show April 10 traffic - ALL trains at route stations for 24 hours."""
-    st.header("🌙 April 10 - All Traffic (24 Hours)")
+    """Show April 10 traffic - ALL trains at route stations with path planner."""
+    st.header("🌙 April 10 - Capacity Analysis")
     
-    st.write("""
-    **Time Window:** April 9, 2024 23:30 → April 10, 2024 23:30 (24 hours)
-    
-    Shows **ALL trains** passing through stations on our route during this window.
-    - 🔵 **Blue** = Our route trains (202404108312 FROM, 202404108396 TO Södertälje)
-    - ⚫ **Gray** = Other trains using the same infrastructure
-    
-    **Stops** appear as horizontal lines (same station, different times).
-    Look for **gaps/white space** = potential capacity for new train paths!
-    """)
+    # Create tabs for different views
+    tab1, tab2 = st.tabs(["📊 Traffic Overview", "🚂 Plan New Train"])
     
     # Create station to Y position mapping
     station_to_y = dict(zip(station_order['station'], station_order['order']))
+    stations_list = station_order['station'].tolist()
+    
+    # Get stop stations (where is_stop is True)
+    if 'is_stop' in station_order.columns:
+        stop_stations = set(station_order[station_order['is_stop'] == True]['station'].tolist())
+    else:
+        stop_stations = set()
     
     # Our route trains on April 10
     our_trains = ['202404108312', '202404108396']
     
-    # Stats
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Trains", traffic_df['taglank'].nunique())
-    with col2:
-        st.metric("Total Records", len(traffic_df))
-    with col3:
-        st.metric("Stations", len(station_order))
-    with col4:
-        our_records = traffic_df[traffic_df['taglank'].astype(str).isin(our_trains)]
-        st.metric("Our Route Records", len(our_records))
+    # Load runtime templates
+    templates = load_runtime_templates()
     
-    st.divider()
-    
-    # Display options
-    st.subheader("⚙️ Display Options")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        show_mode = st.radio(
-            "Display Mode",
-            options=['Lines + Points', 'Lines Only', 'Points Only'],
-            index=0,
-            horizontal=True
+    with tab1:
+        st.write("""
+        **Time Window:** April 10, 2024 05:00 → April 11, 2024 05:00 (24 hours)
+        
+        Shows **ALL trains** passing through stations on our route during this window.
+        - 🔴 **Red** = 202404108312 (FROM Södertälje, 11:19→17:29)
+        - 🔵 **Blue** = 202404108396 (TO Södertälje, 23:44→04:47+1)
+        - ⚫ **Gray** = Other trains using the same infrastructure
+        - 🟡 **Yellow highlight** = Stations where our trains have planned stops
+        """)
+        
+        # Stats
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Trains", traffic_df['taglank'].nunique())
+        with col2:
+            st.metric("Total Records", len(traffic_df))
+        with col3:
+            st.metric("Stations", len(station_order))
+        with col4:
+            st.metric("Stop Stations", len(stop_stations))
+        
+        st.divider()
+        
+        # Display options
+        st.subheader("⚙️ Display Options")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            show_mode = st.radio(
+                "Display Mode",
+                options=['Lines + Points', 'Lines Only', 'Points Only'],
+                index=0,
+                horizontal=True
+            )
+        
+        with col2:
+            show_stops = st.checkbox("Highlight Stops (dwell time)", value=True)
+        
+        with col3:
+            show_other_trains = st.checkbox("Show Other Trains", value=True)
+        
+        with col4:
+            highlight_stop_stations = st.checkbox("Highlight Stop Stations", value=True)
+        
+        st.divider()
+        
+        # Build the traffic diagram
+        fig = build_traffic_diagram(
+            traffic_df, station_order, station_to_y, stop_stations, our_trains,
+            show_mode, show_stops, show_other_trains, highlight_stop_stations,
+            planned_train=None
         )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Show train summaries
+        show_train_summaries(traffic_df, our_trains, stop_stations)
     
-    with col2:
-        show_stops = st.checkbox("Highlight Stops (dwell time)", value=True)
+    with tab2:
+        st.write("""
+        **Plan a New Train Path**
+        
+        Use the runtime templates from our existing trains to simulate a new train path.
+        Select departure time and direction, then optionally add stops to see how 
+        it fits with existing traffic.
+        """)
+        
+        if templates is None:
+            st.error("Runtime templates not found. Please generate them first.")
+            return
+        
+        st.divider()
+        
+        # Direction and time selection
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            direction = st.selectbox(
+                "Direction",
+                options=['TO_SODERTALJE', 'FROM_SODERTALJE'],
+                format_func=lambda x: "🔵 Skandiahamnen → Södertälje" if x == 'TO_SODERTALJE' else "🔴 Södertälje → Skandiahamnen"
+            )
+        
+        with col2:
+            departure_hour = st.slider("Departure Hour", 5, 28, 12, help="Hours from midnight (5-28, where 24+ = next day)")
+        
+        with col3:
+            departure_minute = st.slider("Departure Minute", 0, 59, 0, step=5)
+        
+        # Get template for selected direction
+        template = templates.get(direction, [])
+        base_runtime = sum(s['minutes'] for s in template)
+        
+        st.info(f"**Base runtime:** {base_runtime:.0f} minutes ({base_runtime/60:.1f} hours) without stops")
+        
+        st.divider()
+        
+        # Stop configuration
+        st.subheader("🛑 Configure Stops (Optional)")
+        
+        # Get potential stop stations from template
+        template_stations = [s['from'] for s in template] + ([template[-1]['to']] if template else [])
+        
+        # Only show stop stations that are in our known stop locations
+        available_stops = [s for s in template_stations if s in stop_stations]
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            selected_stops = st.multiselect(
+                "Select Stop Stations",
+                options=available_stops,
+                default=[],
+                help="Select stations where the train should make planned stops"
+            )
+        
+        with col2:
+            stop_duration = st.number_input(
+                "Stop Duration (min)",
+                min_value=5,
+                max_value=60,
+                value=15,
+                step=5,
+                help="Duration of each stop in minutes"
+            )
+        
+        # Calculate total travel time
+        total_stop_time = len(selected_stops) * stop_duration
+        total_travel_time = base_runtime + total_stop_time
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Base Runtime", f"{base_runtime:.0f} min")
+        with col2:
+            st.metric("Stop Time", f"{total_stop_time} min ({len(selected_stops)} stops)")
+        with col3:
+            st.metric("Total Travel Time", f"{total_travel_time:.0f} min ({total_travel_time/60:.1f} h)")
+        
+        # Calculate arrival time
+        departure_minutes_total = departure_hour * 60 + departure_minute
+        arrival_minutes_total = departure_minutes_total + total_travel_time
+        arrival_hour = int(arrival_minutes_total // 60)
+        arrival_minute = int(arrival_minutes_total % 60)
+        
+        dep_str = f"{departure_hour % 24:02d}:{departure_minute:02d}" + (" +1d" if departure_hour >= 24 else "")
+        arr_str = f"{arrival_hour % 24:02d}:{arrival_minute:02d}" + (" +1d" if arrival_hour >= 24 else "")
+        
+        st.success(f"**Planned Schedule:** Departs {dep_str} → Arrives {arr_str}")
+        
+        st.divider()
+        
+        # Generate planned train path
+        planned_train = generate_planned_train_path(
+            template, direction, departure_hour, departure_minute,
+            selected_stops, stop_duration, station_to_y, stations_list
+        )
+        
+        # Display options for planner view
+        st.subheader("⚙️ Display Options")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            planner_show_other = st.checkbox("Show Other Trains", value=True, key="planner_other")
+        
+        with col2:
+            planner_show_route = st.checkbox("Show Our Route Trains", value=True, key="planner_route")
+        
+        with col3:
+            planner_highlight_stops = st.checkbox("Highlight Stop Stations", value=True, key="planner_stops")
+        
+        # Build diagram with planned train
+        fig = build_traffic_diagram(
+            traffic_df, station_order, station_to_y, stop_stations, our_trains,
+            'Lines + Points', True, planner_show_other, planner_highlight_stops,
+            planned_train=planned_train if True else None,
+            show_route_trains=planner_show_route
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Show conflict analysis
+        if planned_train:
+            show_conflict_analysis(planned_train, traffic_df, station_to_y)
+
+
+def generate_planned_train_path(template, direction, dep_hour, dep_minute, stops, stop_duration, station_to_y, stations_list):
+    """Generate a planned train path based on template and user inputs."""
+    if not template:
+        return None
     
-    with col3:
-        show_other_trains = st.checkbox("Show Other Trains", value=True)
+    path_points = []
+    current_time = dep_hour + dep_minute / 60  # Hours from midnight
     
-    st.divider()
+    # Build station sequence from template
+    template_stations = [template[0]['from']]
+    for seg in template:
+        template_stations.append(seg['to'])
     
-    # Build the time-space diagram
+    # If FROM_SODERTALJE, the template is already in correct order
+    # If TO_SODERTALJE, template starts from Skandiahamnen
+    
+    for i, segment in enumerate(template):
+        from_station = segment['from']
+        to_station = segment['to']
+        runtime = segment['minutes']
+        
+        # Add departure point from this station
+        if from_station in station_to_y:
+            path_points.append({
+                'station': from_station,
+                'y': station_to_y[from_station],
+                'time': current_time,
+                'event': 'departure' if i == 0 else 'pass'
+            })
+        
+        # Check if this station has a stop
+        if from_station in stops and i > 0:
+            # Add stop duration
+            current_time += stop_duration / 60
+            if from_station in station_to_y:
+                path_points.append({
+                    'station': from_station,
+                    'y': station_to_y[from_station],
+                    'time': current_time,
+                    'event': 'stop_end'
+                })
+        
+        # Add travel time
+        current_time += runtime / 60
+    
+    # Add final arrival
+    last_station = template[-1]['to']
+    if last_station in station_to_y:
+        path_points.append({
+            'station': last_station,
+            'y': station_to_y[last_station],
+            'time': current_time,
+            'event': 'arrival'
+        })
+    
+    return {
+        'direction': direction,
+        'points': path_points,
+        'stops': stops,
+        'stop_duration': stop_duration
+    }
+
+
+def build_traffic_diagram(traffic_df, station_order, station_to_y, stop_stations, our_trains,
+                          show_mode, show_stops, show_other_trains, highlight_stop_stations,
+                          planned_train=None, show_route_trains=True):
+    """Build the time-space traffic diagram."""
+    
     fig = go.Figure()
     
     # Base time for X-axis (midnight April 10)
@@ -1196,14 +1425,32 @@ def show_april10_capacity(traffic_df, station_order):
     else:
         plot_mode = 'markers'
     
+    # Add horizontal bands for stop stations first (so they're behind)
+    if highlight_stop_stations and len(stop_stations) > 0:
+        for station in stop_stations:
+            if station in station_to_y:
+                y_pos = station_to_y[station]
+                fig.add_hrect(
+                    y0=y_pos - 0.4,
+                    y1=y_pos + 0.4,
+                    fillcolor="rgba(255, 215, 0, 0.3)",
+                    line_width=0,
+                    layer="below"
+                )
+    
     # Process each train
     trains_to_plot = traffic_df['taglank'].unique()
     
     for taglank in trains_to_plot:
         train_data = traffic_df[traffic_df['taglank'] == taglank].sort_values('plandatumtid')
         
-        # Skip if not showing other trains
         is_our = str(taglank) in our_trains
+        
+        # Skip route trains if not showing them
+        if is_our and not show_route_trains:
+            continue
+        
+        # Skip other trains if not showing them
         if not is_our and not show_other_trains:
             continue
         
@@ -1214,16 +1461,17 @@ def show_april10_capacity(traffic_df, station_order):
         times = train_data['plandatumtid']
         x_vals = [(t - base_time).total_seconds() / 3600 for t in times]
         
-        # Get Y positions and stations
+        # Filter to 5am-5am window (5 to 29 hours)
         y_vals = []
         stations = []
         x_filtered = []
         for i, (_, row) in enumerate(train_data.iterrows()):
             station = row['plats']
-            if station in station_to_y:
+            x_time = x_vals[i]
+            if station in station_to_y and 5 <= x_time <= 29:
                 y_vals.append(station_to_y[station])
                 stations.append(station)
-                x_filtered.append(x_vals[i])
+                x_filtered.append(x_time)
         
         if len(y_vals) < 1:
             continue
@@ -1231,16 +1479,16 @@ def show_april10_capacity(traffic_df, station_order):
         # Determine styling
         if is_our:
             if str(taglank) == '202404108396':
-                color = '#2E86AB'  # Blue for TO train
+                color = '#2E86AB'
                 name = f"🔵 {taglank} (TO Södertälje)"
             else:
-                color = '#E94F37'  # Red for FROM train
+                color = '#E94F37'
                 name = f"🔴 {taglank} (FROM Södertälje)"
             width = 3
             opacity = 1.0
-            marker_size = 6
+            marker_size = 8
         else:
-            color = '#888888'  # Gray for other trains
+            color = '#888888'
             width = 1
             opacity = 0.4
             name = str(taglank)
@@ -1251,10 +1499,10 @@ def show_april10_capacity(traffic_df, station_order):
         for x, y, s in zip(x_filtered, y_vals, stations):
             h = int(x) % 24
             m = int((x % 1) * 60)
-            day = "Apr 10" if 0 <= x < 24 else ("Apr 9" if x < 0 else "Apr 11")
-            hover_texts.append(f"<b>{taglank}</b><br>{s}<br>{day} {h:02d}:{m:02d}")
+            day = "Apr 10" if 5 <= x < 24 else "Apr 11"
+            stop_marker = " ⭐STOP" if s in stop_stations and is_our else ""
+            hover_texts.append(f"<b>{taglank}</b><br>{s}{stop_marker}<br>{day} {h:02d}:{m:02d}")
         
-        # Main trace
         fig.add_trace(go.Scatter(
             x=x_filtered,
             y=y_vals,
@@ -1271,47 +1519,99 @@ def show_april10_capacity(traffic_df, station_order):
         # Add stop highlights (horizontal lines for same station)
         if show_stops and len(y_vals) >= 2:
             for j in range(len(y_vals) - 1):
-                if y_vals[j] == y_vals[j + 1]:  # Same station = stop
+                if y_vals[j] == y_vals[j + 1]:
                     fig.add_trace(go.Scatter(
                         x=[x_filtered[j], x_filtered[j + 1]],
                         y=[y_vals[j], y_vals[j + 1]],
                         mode='lines',
-                        line=dict(color=color, width=width * 2.5),
-                        opacity=min(opacity + 0.2, 1.0),
+                        line=dict(color=color, width=width * 3),
+                        opacity=min(opacity + 0.3, 1.0),
                         showlegend=False,
                         hoverinfo='skip'
                     ))
     
-    # Update layout
+    # Add planned train if provided
+    if planned_train and planned_train.get('points'):
+        points = planned_train['points']
+        x_vals = [p['time'] for p in points]
+        y_vals = [p['y'] for p in points]
+        stations = [p['station'] for p in points]
+        
+        # Use green for planned train
+        color = '#00AA00'
+        direction_label = "→ Södertälje" if planned_train['direction'] == 'TO_SODERTALJE' else "→ Skandiahamnen"
+        
+        # Create hover text
+        hover_texts = []
+        for x, y, s in zip(x_vals, y_vals, stations):
+            h = int(x) % 24
+            m = int((x % 1) * 60)
+            day = "Apr 10" if 5 <= x < 24 else "Apr 11"
+            is_stop = s in planned_train.get('stops', [])
+            stop_marker = " 🛑PLANNED STOP" if is_stop else ""
+            hover_texts.append(f"<b>🟢 PLANNED TRAIN</b><br>{s}{stop_marker}<br>{day} {h:02d}:{m:02d}")
+        
+        fig.add_trace(go.Scatter(
+            x=x_vals,
+            y=y_vals,
+            mode='lines+markers',
+            name=f"🟢 Planned Train {direction_label}",
+            line=dict(color=color, width=4, dash='solid'),
+            marker=dict(size=10, color=color, symbol='diamond'),
+            opacity=1.0,
+            text=hover_texts,
+            hovertemplate="%{text}<extra></extra>",
+            showlegend=True
+        ))
+        
+        # Add stop highlights for planned train
+        for i, p in enumerate(points):
+            if p['station'] in planned_train.get('stops', []) and p['event'] == 'stop_end':
+                # Find the previous point (stop start)
+                if i > 0 and points[i-1]['station'] == p['station']:
+                    fig.add_trace(go.Scatter(
+                        x=[points[i-1]['time'], p['time']],
+                        y=[points[i-1]['y'], p['y']],
+                        mode='lines',
+                        line=dict(color=color, width=8),
+                        opacity=0.8,
+                        showlegend=False,
+                        hoverinfo='skip'
+                    ))
+    
+    # Update layout - 5am to 5am (hours 5 to 29)
     fig.update_layout(
-        title="All Train Traffic - April 9 23:30 to April 10 23:30 (24 hours)",
-        xaxis_title="Time (hours from midnight April 10)",
+        title="Train Traffic - April 10 05:00 to April 11 05:00 (24 hours)",
+        xaxis_title="Time",
         yaxis_title="Station",
         height=900,
         xaxis=dict(
-            range=[-0.5, 24],
+            range=[4.5, 29.5],
             dtick=2,
-            ticktext=[f"{int(h):02d}:00" for h in range(0, 25, 2)],
-            tickvals=list(range(0, 25, 2)),
+            ticktext=[f"{int(h % 24):02d}:00" + (" +1d" if h >= 24 else "") for h in range(5, 30, 2)],
+            tickvals=list(range(5, 30, 2)),
             gridcolor='lightgray',
-            zeroline=True,
-            zerolinecolor='gray',
-            zerolinewidth=1
+            zeroline=False
         ),
         yaxis=dict(
             tickmode='array',
             tickvals=list(range(len(station_order))),
-            ticktext=station_order['station'].tolist(),
-            autorange='reversed',  # Skandiahamnen at top
+            ticktext=[f"{'🟡 ' if s in stop_stations else ''}{s}" for s in station_order['station'].tolist()],
+            autorange='reversed',
             gridcolor='lightgray'
         ),
         legend=dict(orientation='h', yanchor='bottom', y=1.02),
         hovermode='closest'
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    # Add midnight line
+    fig.add_vline(x=24, line_dash="dash", line_color="red", annotation_text="Midnight", annotation_position="top")
     
-    # Show train list
+    return fig
+
+
+def show_train_summaries(traffic_df, our_trains, stop_stations):
+    """Show summaries of our route trains."""
     st.divider()
     st.subheader("📋 Our Route Trains on April 10")
     
@@ -1335,28 +1635,58 @@ def show_april10_capacity(traffic_df, station_order):
             first = to_data['plandatumtid'].min()
             last = to_data['plandatumtid'].max()
             st.write(f"- Departs: {first.strftime('%H:%M')} from {to_data[to_data['plandatumtid'] == first]['plats'].iloc[0]}")
-            st.write(f"- Arrives: {last.strftime('%H:%M')} at {to_data[to_data['plandatumtid'] == last]['plats'].iloc[0]}")
-    
-    # Statistics about other trains
+            next_day = "+1d" if last.day != first.day else ""
+            st.write(f"- Arrives: {last.strftime('%H:%M')}{next_day} at {to_data[to_data['plandatumtid'] == last]['plats'].iloc[0]}")
+
+
+def show_conflict_analysis(planned_train, traffic_df, station_to_y):
+    """Show potential conflicts with existing trains."""
     st.divider()
-    st.subheader("📊 Other Traffic Statistics")
+    st.subheader("⚠️ Conflict Analysis")
     
-    other_trains_df = traffic_df[~traffic_df['taglank'].astype(str).isin(our_trains)]
+    if not planned_train or not planned_train.get('points'):
+        st.info("No planned train to analyze.")
+        return
     
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Other Trains", other_trains_df['taglank'].nunique())
-    with col2:
-        # Trains at terminals
-        terminal_stations = ['Göteborg Skandiahamnen', 'Södertälje hamn']
-        terminal_traffic = other_trains_df[other_trains_df['plats'].isin(terminal_stations)]
-        st.metric("Terminal Visits", len(terminal_traffic))
-    with col3:
-        # Busiest intermediate station
-        intermediate = other_trains_df[~other_trains_df['plats'].isin(terminal_stations)]
-        if len(intermediate) > 0:
-            busiest = intermediate.groupby('plats').size().idxmax()
-            st.metric("Busiest Station", busiest[:20] + "...")
+    points = planned_train['points']
+    base_time = pd.Timestamp('2024-04-10 00:00:00')
+    
+    # Find conflicts: trains at same station within 5 minutes
+    conflicts = []
+    
+    for p in points:
+        station = p['station']
+        planned_time_hours = p['time']
+        
+        # Get trains at this station
+        station_traffic = traffic_df[traffic_df['plats'] == station].copy()
+        if len(station_traffic) == 0:
+            continue
+        
+        # Calculate time in hours from midnight
+        station_traffic['time_hours'] = [(t - base_time).total_seconds() / 3600 for t in station_traffic['plandatumtid']]
+        
+        # Find trains within 5 minutes (0.083 hours)
+        nearby = station_traffic[abs(station_traffic['time_hours'] - planned_time_hours) < 0.083]
+        
+        for _, row in nearby.iterrows():
+            h = int(row['time_hours']) % 24
+            m = int((row['time_hours'] % 1) * 60)
+            conflicts.append({
+                'station': station,
+                'train': row['taglank'],
+                'time': f"{h:02d}:{m:02d}",
+                'delta_min': abs(row['time_hours'] - planned_time_hours) * 60
+            })
+    
+    if conflicts:
+        st.warning(f"Found {len(conflicts)} potential conflicts (trains within 5 minutes):")
+        for c in conflicts[:10]:  # Show first 10
+            st.write(f"- **{c['station']}**: Train {c['train']} at {c['time']} ({c['delta_min']:.1f} min apart)")
+        if len(conflicts) > 10:
+            st.write(f"... and {len(conflicts) - 10} more")
+    else:
+        st.success("✅ No conflicts found! The planned path appears to be clear.")
 
 
 def main():
