@@ -79,6 +79,19 @@ def load_route_delay_data():
     return route_delay
 
 
+@st.cache_data
+def load_endpoint_movements():
+    """Load all train movements at endpoint stations (Skandiahamnen and Södertälje hamn)."""
+    endpoint_df = pd.read_csv(ANALYSIS_PATH / "endpoint_movements.csv")
+    endpoint_df['plandatumtid'] = pd.to_datetime(endpoint_df['plandatumtid'])
+    endpoint_df['utfdatumtid'] = pd.to_datetime(endpoint_df['utfdatumtid'])
+    endpoint_df['date'] = endpoint_df['plandatumtid'].dt.date
+    endpoint_df['hour'] = endpoint_df['plandatumtid'].dt.hour
+    endpoint_df['weekday'] = endpoint_df['plandatumtid'].dt.dayofweek
+    endpoint_df['weekday_name'] = endpoint_df['plandatumtid'].dt.day_name()
+    return endpoint_df
+
+
 def get_unique_paths(sequences_df):
     """Extract unique path variants from the sequences."""
     # Group by station_sequence and count
@@ -851,6 +864,260 @@ def show_path_analysis(base_data):
                         st.write(f"{j}. {station}")
 
 
+def show_endpoint_traffic(endpoint_df):
+    """Show all traffic at endpoint stations - helps identify available capacity slots."""
+    st.header("🚉 Endpoint Station Traffic")
+    
+    st.write("""
+    View **ALL** train movements at Skandiahamnen and Södertälje Hamn - not just the route trains.
+    This shows the full picture of station activity to identify available capacity windows.
+    
+    - **Arrivals (Ankomst):** Trains arriving at the station
+    - **Departures (Avgång):** Trains departing from the station
+    """)
+    
+    # Summary stats
+    col1, col2, col3, col4 = st.columns(4)
+    
+    skandia_data = endpoint_df[endpoint_df['plats'] == 'Göteborg Skandiahamnen']
+    sodertalje_data = endpoint_df[endpoint_df['plats'] == 'Södertälje hamn']
+    
+    with col1:
+        st.metric("🚢 Skandiahamnen Total", len(skandia_data))
+    with col2:
+        st.metric("🚢 Skandia Unique Trains", skandia_data['taglank'].nunique())
+    with col3:
+        st.metric("⚓ Södertälje Total", len(sodertalje_data))
+    with col4:
+        st.metric("⚓ Södertälje Unique Trains", sodertalje_data['taglank'].nunique())
+    
+    st.divider()
+    
+    # Station selector
+    station = st.selectbox(
+        "Select Station",
+        options=['Göteborg Skandiahamnen', 'Södertälje hamn'],
+        format_func=lambda x: '🚢 Göteborg Skandiahamnen' if 'Skandia' in x else '⚓ Södertälje Hamn'
+    )
+    
+    station_data = endpoint_df[endpoint_df['plats'] == station].copy()
+    
+    # Tabs for different views
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Hourly Heatmap", "📈 Daily Pattern", "📅 Calendar View", "📋 Details"])
+    
+    with tab1:
+        st.subheader(f"Hourly Traffic Heatmap - {station}")
+        st.write("Shows train activity by hour and day of week. **Darker = more trains.**")
+        
+        # Create heatmap data: weekday x hour
+        heatmap_data = station_data.groupby(['weekday', 'hour']).size().reset_index(name='count')
+        
+        # Pivot for heatmap
+        heatmap_pivot = heatmap_data.pivot(index='weekday', columns='hour', values='count').fillna(0)
+        
+        # Ensure all hours present
+        for h in range(24):
+            if h not in heatmap_pivot.columns:
+                heatmap_pivot[h] = 0
+        heatmap_pivot = heatmap_pivot[sorted(heatmap_pivot.columns)]
+        
+        # Ensure all weekdays present
+        weekday_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        for wd in range(7):
+            if wd not in heatmap_pivot.index:
+                heatmap_pivot.loc[wd] = 0
+        heatmap_pivot = heatmap_pivot.sort_index()
+        
+        # Create heatmap
+        fig = go.Figure(data=go.Heatmap(
+            z=heatmap_pivot.values,
+            x=[f"{h:02d}:00" for h in range(24)],
+            y=weekday_names,
+            colorscale='YlOrRd',
+            hoverongaps=False,
+            hovertemplate="Day: %{y}<br>Hour: %{x}<br>Trains: %{z}<extra></extra>"
+        ))
+        
+        fig.update_layout(
+            title=f"Train Activity by Hour and Day - {station}",
+            xaxis_title="Hour of Day",
+            yaxis_title="Day of Week",
+            height=400
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Highlight low-activity windows
+        st.subheader("🟢 Low Activity Windows (Potential Capacity)")
+        low_threshold = heatmap_pivot.values.mean() * 0.5
+        
+        low_windows = []
+        for wd_idx, wd_name in enumerate(weekday_names):
+            for h in range(24):
+                if heatmap_pivot.iloc[wd_idx, h] <= low_threshold:
+                    low_windows.append(f"{wd_name} {h:02d}:00")
+        
+        if low_windows:
+            n_cols = 4
+            cols = st.columns(n_cols)
+            for i, window in enumerate(low_windows[:20]):
+                cols[i % n_cols].write(f"✅ {window}")
+            if len(low_windows) > 20:
+                st.write(f"... and {len(low_windows) - 20} more low-activity windows")
+    
+    with tab2:
+        st.subheader(f"Average Daily Traffic Pattern - {station}")
+        
+        # Separate arrivals and departures
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            arrivals = station_data[station_data['riktningny'] == 'Ankomst']
+            hourly_arrivals = arrivals.groupby('hour').size().reset_index(name='count')
+            
+            fig_arr = go.Figure()
+            fig_arr.add_trace(go.Bar(
+                x=hourly_arrivals['hour'],
+                y=hourly_arrivals['count'],
+                name='Arrivals',
+                marker_color='#2E86AB'
+            ))
+            fig_arr.update_layout(
+                title="Arrivals by Hour",
+                xaxis_title="Hour",
+                yaxis_title="Number of Trains",
+                height=300,
+                xaxis=dict(dtick=2)
+            )
+            st.plotly_chart(fig_arr, use_container_width=True)
+        
+        with col2:
+            departures = station_data[station_data['riktningny'] == 'Avgång']
+            hourly_departures = departures.groupby('hour').size().reset_index(name='count')
+            
+            fig_dep = go.Figure()
+            fig_dep.add_trace(go.Bar(
+                x=hourly_departures['hour'],
+                y=hourly_departures['count'],
+                name='Departures',
+                marker_color='#E94F37'
+            ))
+            fig_dep.update_layout(
+                title="Departures by Hour",
+                xaxis_title="Hour",
+                yaxis_title="Number of Trains",
+                height=300,
+                xaxis=dict(dtick=2)
+            )
+            st.plotly_chart(fig_dep, use_container_width=True)
+        
+        # Combined timeline
+        st.subheader("Combined Hourly Pattern")
+        
+        hourly_combined = station_data.groupby(['hour', 'riktningny']).size().reset_index(name='count')
+        
+        fig_combined = go.Figure()
+        for direction, color in [('Ankomst', '#2E86AB'), ('Avgång', '#E94F37')]:
+            dir_data = hourly_combined[hourly_combined['riktningny'] == direction]
+            fig_combined.add_trace(go.Scatter(
+                x=dir_data['hour'],
+                y=dir_data['count'],
+                mode='lines+markers',
+                name='Arrivals' if direction == 'Ankomst' else 'Departures',
+                line=dict(color=color, width=3),
+                marker=dict(size=8)
+            ))
+        
+        fig_combined.update_layout(
+            xaxis_title="Hour of Day",
+            yaxis_title="Number of Trains",
+            height=350,
+            xaxis=dict(dtick=2, range=[-0.5, 23.5]),
+            legend=dict(orientation='h', yanchor='bottom', y=1.02)
+        )
+        st.plotly_chart(fig_combined, use_container_width=True)
+    
+    with tab3:
+        st.subheader(f"Monthly Traffic - {station}")
+        
+        station_data['month'] = station_data['plandatumtid'].dt.to_period('M').astype(str)
+        monthly = station_data.groupby(['month', 'riktningny']).size().reset_index(name='count')
+        
+        fig_monthly = go.Figure()
+        for direction, color in [('Ankomst', '#2E86AB'), ('Avgång', '#E94F37')]:
+            dir_data = monthly[monthly['riktningny'] == direction]
+            fig_monthly.add_trace(go.Bar(
+                x=dir_data['month'],
+                y=dir_data['count'],
+                name='Arrivals' if direction == 'Ankomst' else 'Departures',
+                marker_color=color
+            ))
+        
+        fig_monthly.update_layout(
+            barmode='group',
+            xaxis_title="Month",
+            yaxis_title="Number of Trains",
+            height=400
+        )
+        st.plotly_chart(fig_monthly, use_container_width=True)
+        
+        # Daily distribution for selected month
+        st.subheader("Daily Distribution")
+        months = sorted(station_data['month'].unique())
+        selected_month = st.selectbox("Select Month", options=months, index=len(months)//2)
+        
+        month_data = station_data[station_data['month'] == selected_month]
+        month_data['day'] = month_data['plandatumtid'].dt.day
+        
+        daily = month_data.groupby(['day', 'riktningny']).size().reset_index(name='count')
+        
+        fig_daily = go.Figure()
+        for direction, color in [('Ankomst', '#2E86AB'), ('Avgång', '#E94F37')]:
+            dir_data = daily[daily['riktningny'] == direction]
+            fig_daily.add_trace(go.Scatter(
+                x=dir_data['day'],
+                y=dir_data['count'],
+                mode='lines+markers',
+                name='Arrivals' if direction == 'Ankomst' else 'Departures',
+                line=dict(color=color),
+                marker=dict(size=6)
+            ))
+        
+        fig_daily.update_layout(
+            title=f"Daily Traffic - {selected_month}",
+            xaxis_title="Day of Month",
+            yaxis_title="Number of Trains",
+            height=300
+        )
+        st.plotly_chart(fig_daily, use_container_width=True)
+    
+    with tab4:
+        st.subheader(f"Recent Movements - {station}")
+        
+        # Show recent movements
+        recent = station_data.sort_values('plandatumtid', ascending=False).head(100)
+        
+        display_df = recent[['plandatumtid', 'riktningny', 'tagnr', 'taglank', 'tidsavvikelse']].copy()
+        display_df['plandatumtid'] = display_df['plandatumtid'].dt.strftime('%Y-%m-%d %H:%M')
+        display_df.columns = ['Planned Time', 'Direction', 'Train Nr', 'Journey ID', 'Delay (min)']
+        display_df['Direction'] = display_df['Direction'].map({'Ankomst': '🔵 Arrival', 'Avgång': '🔴 Departure'})
+        
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        
+        # Stats
+        st.subheader("Summary Statistics")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**By Direction:**")
+            st.write(station_data.groupby('riktningny').size().to_frame('Count'))
+        
+        with col2:
+            st.write("**By Operator (Avtalspart):**")
+            operator_counts = station_data.groupby('avtalspart').size().sort_values(ascending=False)
+            st.write(operator_counts.head(10).to_frame('Count'))
+
+
 def main():
     """Main application."""
     
@@ -860,10 +1127,11 @@ def main():
     
     page = st.sidebar.radio(
         "Navigation",
-        options=['Overview', 'Time-Space Diagram', 'Path Analysis', 'Slot Finder'],
+        options=['Overview', 'Time-Space Diagram', 'Endpoint Traffic', 'Path Analysis', 'Slot Finder'],
         format_func=lambda x: {
             'Overview': '📊 Route Overview',
             'Time-Space Diagram': '📈 Time-Space Diagram',
+            'Endpoint Traffic': '🚉 Endpoint Traffic',
             'Path Analysis': '🛤️ Path Analysis',
             'Slot Finder': '🔍 Find Slots'
         }.get(x, x)
@@ -879,6 +1147,11 @@ def main():
     
     Find available timeslots for 
     scheduling new freight trains.
+    
+    **Endpoint Traffic:**
+    View ALL train movements at the 
+    terminal stations to identify 
+    available capacity windows.
     
     **Time-Space Diagram:**
     Standard railway planning view 
@@ -905,6 +1178,14 @@ def main():
         except Exception as e:
             st.error(f"Error loading delay data: {e}")
             st.info("Make sure route_delay_data.csv exists in the analysis folder.")
+    elif page == 'Endpoint Traffic':
+        try:
+            with st.spinner("Loading endpoint movements..."):
+                endpoint_df = load_endpoint_movements()
+            show_endpoint_traffic(endpoint_df)
+        except Exception as e:
+            st.error(f"Error loading endpoint data: {e}")
+            st.info("Make sure endpoint_movements.csv exists in the analysis folder.")
     elif page == 'Path Analysis':
         show_path_analysis(base_data)
     elif page == 'Slot Finder':
