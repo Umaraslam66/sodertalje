@@ -28,8 +28,6 @@ st.set_page_config(
 # Paths - use absolute path to handle different working directories
 SCRIPT_DIR = Path(__file__).resolve().parent
 ANALYSIS_PATH = SCRIPT_DIR.parent / "analysis"
-BASE_PATH = SCRIPT_DIR.parent.parent.parent
-DELAY_PATH = BASE_PATH / "Data" / "Delay"
 
 # Colors for different trains
 TRAIN_COLORS = px.colors.qualitative.Set2 + px.colors.qualitative.Plotly
@@ -72,23 +70,11 @@ def load_base_data():
 
 
 @st.cache_data
-def load_delay_data():
-    """Load raw delay data for time-space diagrams."""
-    delay_files = list(DELAY_PATH.glob("*.parquet"))
-    dfs = []
-    for f in delay_files:
-        dfs.append(pd.read_parquet(f))
-    delay_df = pd.concat(dfs, ignore_index=True)
-    delay_df['plandatumtid'] = pd.to_datetime(delay_df['plandatumtid'])
-    delay_df['utfdatumtid'] = pd.to_datetime(delay_df['utfdatumtid'])
-    return delay_df
-
-
-@st.cache_data
-def get_route_delay_data(_delay_df, journeys_df):
-    """Filter delay data to route journeys only."""
-    route_taglanks = set(journeys_df['taglank'].unique())
-    route_delay = _delay_df[_delay_df['taglank'].isin(route_taglanks)].copy()
+def load_route_delay_data():
+    """Load pre-processed route delay data from CSV (much faster than parquet)."""
+    route_delay = pd.read_csv(ANALYSIS_PATH / "route_delay_data.csv")
+    route_delay['plandatumtid'] = pd.to_datetime(route_delay['plandatumtid'])
+    route_delay['utfdatumtid'] = pd.to_datetime(route_delay['utfdatumtid'])
     route_delay['date'] = route_delay['plandatumtid'].dt.date
     return route_delay
 
@@ -379,7 +365,7 @@ def create_direction_diagram(ts_data, station_order, direction, title, yaxis_sid
     return fig
 
 
-def show_time_space_diagram_page(base_data, delay_df, route_delay_df):
+def show_time_space_diagram_page(base_data, route_delay_df):
     """Show the time-space diagram page with separate diagrams per direction."""
     st.header("📊 Time-Space Diagram (Grafischer Fahrplan)")
     
@@ -913,13 +899,12 @@ def main():
         show_overview(base_data)
     elif page == 'Time-Space Diagram':
         try:
-            with st.spinner("Loading train data (this may take a moment)..."):
-                delay_df = load_delay_data()
-                route_delay_df = get_route_delay_data(delay_df, base_data['journeys'])
-            show_time_space_diagram_page(base_data, delay_df, route_delay_df)
+            with st.spinner("Loading train data..."):
+                route_delay_df = load_route_delay_data()
+            show_time_space_diagram_page(base_data, route_delay_df)
         except Exception as e:
             st.error(f"Error loading delay data: {e}")
-            st.info("Make sure the Data/Delay folder contains the parquet files.")
+            st.info("Make sure route_delay_data.csv exists in the analysis folder.")
     elif page == 'Path Analysis':
         show_path_analysis(base_data)
     elif page == 'Slot Finder':
