@@ -101,16 +101,520 @@ def load_april10_traffic():
     return traffic_df, station_order
 
 
+
+
+
 @st.cache_data
-def load_combined_traffic():
-    """Load combined freight + passenger traffic data."""
-    combined_path = ANALYSIS_PATH / "april10_combined_traffic.csv"
-    if combined_path.exists():
-        traffic_df = pd.read_csv(combined_path)
-        traffic_df['plandatumtid'] = pd.to_datetime(traffic_df['plandatumtid'])
-        station_order = pd.read_csv(ANALYSIS_PATH / "april10_station_order.csv")
-        return traffic_df, station_order
-    return None, None
+def load_timetable_data():
+    """Load combined freight and passenger train timetable data.
+    
+    Returns timetable with:
+    - Freight trains from corridor data  
+    - Passenger trains from GTFS Sweden historical archive (April 10, 2024)
+    """
+    timetable_path = ANALYSIS_PATH / "april10_combined_timetable.csv"
+    station_order_path = ANALYSIS_PATH / "april10_station_order.csv"
+    
+    if not timetable_path.exists() or not station_order_path.exists():
+        return None
+    
+    combined_df = pd.read_csv(timetable_path)
+    station_order = pd.read_csv(station_order_path)
+    
+    return combined_df, station_order
+
+
+def prepare_timetable_trains(timetable_df, station_order):
+    """Prepare timetable trains for plotting.
+    
+    For each train:
+    1. Get all stations in order
+    2. Filter to only stations with times (stops)
+    3. Map station full names to Y positions
+    4. Calculate time in hours from midnight
+    
+    Returns a list of train dictionaries with plotting data.
+    """
+    if timetable_df is None or len(timetable_df) == 0:
+        return []
+    
+    # Create station name to Y position mapping
+    station_to_y = dict(zip(station_order['station'], station_order['order']))
+    
+    trains = []
+    
+    for train_id in timetable_df['train_id'].unique():
+        train_data = timetable_df[timetable_df['train_id'] == train_id].copy()
+        
+        if len(train_data) == 0:
+            continue
+        
+        train_type = train_data['Type'].iloc[0] if 'Type' in train_data.columns else 'Unknown'
+        operator = train_data['Operator'].iloc[0] if 'Operator' in train_data.columns else 'Unknown'
+        
+        # Get stations with times (stops only)
+        # A stop has either Ankomst or Avgång time
+        stops_data = train_data[
+            train_data['Ankomst'].notna() | train_data['Avgång'].notna()
+        ].copy()
+        
+        if len(stops_data) < 2:
+            continue
+        
+        # Parse times and map to stations
+        points = []
+        for _, row in stops_data.iterrows():
+            station_name = row['Station_Full_Name']
+            if pd.isna(station_name):
+                continue
+            
+            if station_name not in station_to_y:
+                continue
+            
+            y_pos = station_to_y[station_name]
+            
+            # Parse time strings (format: "HH:MM" or "HH:MM:SS")
+            arr_time = None
+            dep_time = None
+            
+            if pd.notna(row['Ankomst']):
+                arr_str = str(row['Ankomst'])
+                try:
+                    parts = arr_str.split(':')
+                    arr_time = int(parts[0]) + int(parts[1]) / 60
+                except:
+                    pass
+            
+            if pd.notna(row['Avgång']):
+                dep_str = str(row['Avgång'])
+                try:
+                    parts = dep_str.split(':')
+                    dep_time = int(parts[0]) + int(parts[1]) / 60
+                except:
+                    pass
+            
+            # Add arrival point if available
+            if arr_time is not None:
+                points.append({
+                    'station': station_name,
+                    'y': y_pos,
+                    'time': arr_time,
+                    'event': 'arrival'
+                })
+            
+            # Add departure point if available and different from arrival
+            if dep_time is not None and (arr_time is None or abs(dep_time - arr_time) > 0.001):
+                points.append({
+                    'station': station_name,
+                    'y': y_pos,
+                    'time': dep_time,
+                    'event': 'departure'
+                })
+        
+        if len(points) < 2:
+            continue
+        
+        # Sort by time
+        points = sorted(points, key=lambda x: x['time'])
+        
+        # Determine direction based on Y positions
+        first_y = points[0]['y']
+        last_y = points[-1]['y']
+        
+        if first_y < last_y:
+            direction = 'TO_SODERTALJE'  # Going from low Y (Göteborg) to high Y (Södertälje)
+        else:
+            direction = 'FROM_SODERTALJE'
+        
+        trains.append({
+            'train_id': train_id,
+            'train_type': train_type,
+            'operator': operator,
+            'direction': direction,
+            'points': points,
+            'num_stops': len(stops_data)
+        })
+    
+    return trains
+
+
+def build_timetable_diagram(timetable_trains, station_order, station_to_y, stop_stations,
+                            show_mode, show_to_sodertalje, show_from_sodertalje,
+                            highlight_stop_stations, show_train_types, freight_df=None, 
+                            our_trains=None, show_freight=False):
+    """Build time-space diagram from timetable passenger train data.
+    
+    Passenger trains are plotted with straight lines connecting STOPS ONLY.
+    Pass-through stations (without times) are implied by the straight lines.
+    
+    Args:
+        timetable_trains: List of train dicts from prepare_timetable_trains
+        station_order: DataFrame with station order
+        station_to_y: Dict mapping station names to Y positions
+        stop_stations: Set of known stop station names
+        show_mode: 'Lines + Points', 'Lines Only', or 'Points Only'
+        show_to_sodertalje: Show trains going to Södertälje
+        show_from_sodertalje: Show trains going from Södertälje
+        highlight_stop_stations: Highlight stop stations with yellow bands
+        show_train_types: List of train types to show ['RST', 'TJT', 'VXR']
+        freight_df: Optional freight traffic DataFrame to overlay
+        our_trains: List of our route train IDs
+        show_freight: Whether to show freight trains
+    """
+    fig = go.Figure()
+    
+    # Determine plot mode
+    if show_mode == 'Lines + Points':
+        plot_mode = 'lines+markers'
+    elif show_mode == 'Lines Only':
+        plot_mode = 'lines'
+    else:
+        plot_mode = 'markers'
+    
+    # Add horizontal bands for stop stations first
+    if highlight_stop_stations and len(stop_stations) > 0:
+        for station in stop_stations:
+            if station in station_to_y:
+                y_pos = station_to_y[station]
+                fig.add_hrect(
+                    y0=y_pos - 0.4,
+                    y1=y_pos + 0.4,
+                    fillcolor="rgba(255, 215, 0, 0.3)",
+                    line_width=0,
+                    layer="below"
+                )
+    
+    # Optional: Add freight trains first (background)
+    if show_freight and freight_df is not None and our_trains is not None:
+        base_time = pd.Timestamp('2024-04-10 00:00:00')
+        
+        for taglank in freight_df['taglank'].unique():
+            train_data = freight_df[freight_df['taglank'] == taglank].sort_values('plandatumtid')
+            is_our = str(taglank) in our_trains
+            
+            if len(train_data) < 1:
+                continue
+            
+            times = train_data['plandatumtid']
+            x_vals = [(t - base_time).total_seconds() / 3600 for t in times]
+            
+            y_vals = []
+            stations = []
+            x_filtered = []
+            for i, (_, row) in enumerate(train_data.iterrows()):
+                station = row['plats']
+                x_time = x_vals[i]
+                if station in station_to_y and 5 <= x_time <= 29:
+                    y_vals.append(station_to_y[station])
+                    stations.append(station)
+                    x_filtered.append(x_time)
+            
+            if len(y_vals) < 1:
+                continue
+            
+            if is_our:
+                if str(taglank) == '202404108396':
+                    color = '#2E86AB'
+                    name = f"🔵 GT {taglank}"
+                else:
+                    color = '#E94F37'
+                    name = f"🔴 GT {taglank}"
+                width = 3
+                opacity = 1.0
+            else:
+                color = '#888888'
+                width = 1
+                opacity = 0.3
+                name = f"GT {taglank}"
+            
+            fig.add_trace(go.Scatter(
+                x=x_filtered,
+                y=y_vals,
+                mode='lines',
+                name=name,
+                line=dict(color=color, width=width),
+                opacity=opacity,
+                showlegend=is_our,
+                hovertemplate=f"<b>Freight: {taglank}</b><br>%{{y}}<br>%{{x:.2f}}h<extra></extra>"
+            ))
+    
+    # Our two specific freight trains (complete paths Skandiahamnen ↔ Södertälje)
+    our_freight_trains = ['FREIGHT_202404108312', 'FREIGHT_202404108396']
+    
+    # Plot all trains from timetable (freight + passenger)
+    for train in timetable_trains:
+        train_type = train['train_type']
+        direction = train['direction']
+        train_id = train['train_id']
+        
+        # Filter by train type
+        if train_type not in show_train_types:
+            continue
+        
+        # Filter by direction
+        if direction == 'TO_SODERTALJE' and not show_to_sodertalje:
+            continue
+        if direction == 'FROM_SODERTALJE' and not show_from_sodertalje:
+            continue
+        
+        points = train['points']
+        x_vals = [p['time'] for p in points]
+        y_vals = [p['y'] for p in points]
+        stations = [p['station'] for p in points]
+        events = [p['event'] for p in points]
+        
+        # Filter to 5am-5am window
+        filtered = [(x, y, s, e) for x, y, s, e in zip(x_vals, y_vals, stations, events) if 5 <= x <= 29]
+        if len(filtered) < 2:
+            continue
+        
+        x_filtered = [f[0] for f in filtered]
+        y_filtered = [f[1] for f in filtered]
+        stations_filtered = [f[2] for f in filtered]
+        events_filtered = [f[3] for f in filtered]
+        
+        # Determine color and styling
+        is_our_freight = train_id in our_freight_trains
+        
+        if train_type == 'Freight':
+            if is_our_freight:
+                # Highlight our two specific freight trains
+                if train_id == 'FREIGHT_202404108396':
+                    color = '#2E86AB'  # Blue - TO Södertälje
+                    name = f"🔵 {train_id}"
+                else:  # 202404108312
+                    color = '#E94F37'  # Red - FROM Södertälje
+                    name = f"🔴 {train_id}"
+                line_width = 3.0
+                marker_size = 8
+                opacity = 1.0
+                show_legend = True
+            else:
+                # All other freight trains in gray
+                color = '#888888'
+                name = f"Freight {train_id}"
+                line_width = 1.0
+                marker_size = 4
+                opacity = 0.4
+                show_legend = False
+        else:  # Passenger trains
+            if direction == 'TO_SODERTALJE':
+                color = '#27AE60'  # Green
+            else:
+                color = '#E67E22'  # Orange
+            name = f"Passenger {train_id}"
+            line_width = 1.5
+            marker_size = 5
+            opacity = 0.6
+            show_legend = False
+        
+        # Create hover text
+        dir_arrow = "→" if direction == 'TO_SODERTALJE' else "←"
+        type_icon = "🚛" if train_type == 'Freight' else "🚄"
+        hover_texts = []
+        for x, s, e in zip(x_filtered, stations_filtered, events_filtered):
+            h = int(x) % 24
+            m = int((x % 1) * 60)
+            event_label = "🛑 STOP" if e in ['arrival', 'departure'] else "→"
+            hover_texts.append(f"<b>{train_id}</b><br>{type_icon} {train_type} {dir_arrow}<br>{train.get('operator', '')}<br>{s} {event_label}<br>{h:02d}:{m:02d}")
+        
+        # Add the train line
+        fig.add_trace(go.Scatter(
+            x=x_filtered,
+            y=y_filtered,
+            mode=plot_mode,
+            name=name,
+            line=dict(color=color, width=line_width),
+            marker=dict(size=marker_size, color=color),
+            opacity=opacity,
+            text=hover_texts,
+            hovertemplate="%{text}<extra></extra>",
+            showlegend=show_legend
+        ))
+        
+        # Add thick horizontal lines for dwell time (same station twice in a row)
+        for j in range(len(y_filtered) - 1):
+            if y_filtered[j] == y_filtered[j + 1]:
+                fig.add_trace(go.Scatter(
+                    x=[x_filtered[j], x_filtered[j + 1]],
+                    y=[y_filtered[j], y_filtered[j + 1]],
+                    mode='lines',
+                    line=dict(color=color, width=6),
+                    opacity=0.8,
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
+    
+    # Update layout
+    stations_list = station_order['station'].tolist()
+    
+    fig.update_layout(
+        title="Combined Timetable (Freight + Passenger) - April 10, 2024",
+        xaxis_title="Time (hours from midnight)",
+        yaxis_title="Station",
+        height=900,
+        xaxis=dict(
+            range=[4.5, 29.5],
+            dtick=2,
+            ticktext=[f"{int(h % 24):02d}:00" + (" +1d" if h >= 24 else "") for h in range(5, 30, 2)],
+            tickvals=list(range(5, 30, 2)),
+            gridcolor='lightgray',
+            zeroline=False
+        ),
+        yaxis=dict(
+            tickmode='array',
+            tickvals=list(range(len(station_order))),
+            ticktext=[f"{'🟡 ' if s in stop_stations else ''}{s}" for s in stations_list],
+            autorange='reversed',
+            gridcolor='lightgray'
+        ),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02),
+        hovermode='closest'
+    )
+    
+    # Add midnight line
+    fig.add_vline(x=24, line_dash="dash", line_color="red", annotation_text="Midnight", annotation_position="top")
+    
+    return fig
+
+
+def show_timetable_view(timetable_result, station_order, station_to_y, stop_stations, 
+                        our_trains, freight_df):
+    """Display the timetable-based train view with freight and passenger traffic.
+    
+    Shows all trains (freight + passenger) from combined data sources.
+    """
+    st.write("""
+    **📅 Combined Timetable View - Freight & Passenger Trains (April 10, 2024)**
+    
+    This view combines:
+    - **🚛 Freight trains** from corridor-specific data (Göteborg Skandiahamnen ↔ Södertälje)
+    - **🚄 Passenger trains** from GTFS Sweden archive
+    
+    - **Only STOPS are plotted** - stations where trains have scheduled arrival/departure times
+    - **Straight lines** connect stops, passing through intermediate stations
+    
+    **Color Coding:**
+    - 🔵 **Blue** = Our freight train TO Södertälje (202404108396)
+    - 🔴 **Red** = Our freight train FROM Södertälje (202404108312)
+    - ⚫ **Gray** = Other freight trains (background traffic)
+    - 🟢 **Green** = Passenger trains → To Södertälje
+    - 🟠 **Orange** = Passenger trains ← From Södertälje
+    """)
+    
+    # Unpack timetable data
+    timetable_df, _ = timetable_result
+    
+    # Prepare trains
+    timetable_trains = prepare_timetable_trains(timetable_df, station_order)
+    
+    # Statistics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    train_types = {}
+    operators = {}
+    directions = {'TO_SODERTALJE': 0, 'FROM_SODERTALJE': 0}
+    for t in timetable_trains:
+        train_types[t['train_type']] = train_types.get(t['train_type'], 0) + 1
+        operators[t.get('operator', 'Unknown')] = operators.get(t.get('operator', 'Unknown'), 0) + 1
+        directions[t['direction']] = directions.get(t['direction'], 0) + 1
+    
+    with col1:
+        st.metric("Total Trains", len(timetable_trains))
+    with col2:
+        st.metric("Unique Operators", len(operators))
+    with col3:
+        st.metric("→ To Södertälje", directions['TO_SODERTALJE'])
+    with col4:
+        st.metric("← From Södertälje", directions['FROM_SODERTALJE'])
+    
+    st.divider()
+    
+    # Display options
+    st.subheader("⚙️ Display Options")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        tt_mode = st.radio(
+            "Display Mode",
+            options=['Lines + Points', 'Lines Only', 'Points Only'],
+            index=0,
+            horizontal=True,
+            key="timetable_mode"
+        )
+    
+    with col2:
+        tt_highlight = st.checkbox("Highlight Stop Stations", value=True, key="timetable_highlight")
+    
+    with col3:
+        pass  # Reserved for future options
+    
+    # Type and operator filters
+    st.write("**Filters:**")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        show_freight = st.checkbox("🚛 Show Freight Trains", value=True, key="tt_freight")
+    
+    with col2:
+        show_passenger = st.checkbox("🚄 Show Passenger Trains", value=True, key="tt_passenger")
+    
+    with col3:
+        # Show train type counts
+        st.write("Train Types:")
+        for ttype, count in sorted(train_types.items()):
+            st.write(f"  • {ttype}: {count}")
+    
+    # Direction filters
+    col1, col2 = st.columns(2)
+    with col1:
+        tt_to_sod = st.checkbox("🟢 Show → Södertälje direction", value=True, key="tt_to_sod")
+    with col2:
+        tt_from_sod = st.checkbox("🟠 Show ← From Södertälje direction", value=True, key="tt_from_sod")
+    
+    st.divider()
+    
+    # Build list of train types to show
+    show_train_types = []
+    if show_freight:
+        show_train_types.append('Freight')
+    if show_passenger:
+        show_train_types.append('Passenger')
+    
+    # Build diagram (no longer need freight_df overlay since it's in the combined data)
+    fig = build_timetable_diagram(
+        timetable_trains, station_order, station_to_y, stop_stations,
+        tt_mode, tt_to_sod, tt_from_sod, tt_highlight, show_train_types,
+        freight_df=None,
+        our_trains=None,
+        show_freight=False
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Summary
+    st.divider()
+    st.subheader("📊 Train Summary")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**By Train Type:**")
+        for ttype, count in sorted(train_types.items()):
+            st.write(f"- **{ttype}**: {count} trains")
+    
+    with col2:
+        st.write("**By Direction:**")
+        st.write(f"- **→ To Södertälje**: {directions['TO_SODERTALJE']} trains")
+        st.write(f"- **← From Södertälje**: {directions['FROM_SODERTALJE']} trains")
+    
+    # Top operators
+    if operators:
+        st.divider()
+        st.subheader("📋 Top Operators")
+        operators_sorted = sorted(operators.items(), key=lambda x: x[1], reverse=True)
+        for op, count in operators_sorted[:10]:
+            st.write(f"- **{op}**: {count} trains")
 
 
 def get_unique_paths(sequences_df):
@@ -1153,15 +1657,17 @@ def show_april10_capacity(traffic_df, station_order):
     """Show April 10 traffic - ALL trains at route stations with path planner."""
     st.header("🌙 April 10 - Capacity Analysis")
     
-    # Try to load combined traffic (freight + passenger)
-    combined_df, _ = load_combined_traffic()
-    has_combined = combined_df is not None
+    # Try to load timetable data (freight + GTFS passenger)
+    timetable_result = load_timetable_data()
+    has_timetable = timetable_result is not None
     
     # Create tabs for different views
-    if has_combined:
-        tab1, tab2, tab3 = st.tabs(["📊 Freight Only", "🚃 Combined (Freight + Passenger)", "🚂 Plan New Train"])
-    else:
-        tab1, tab2 = st.tabs(["📊 Traffic Overview", "🚂 Plan New Train"])
+    tab_names = ["📊 Freight Only"]
+    if has_timetable:
+        tab_names.append("📅 Combined Timetable (Freight + Passenger)")
+    tab_names.append("🚂 Plan New Train")
+    
+    tabs = st.tabs(tab_names)
     
     # Create station to Y position mapping
     station_to_y = dict(zip(station_order['station'], station_order['order']))
@@ -1179,7 +1685,11 @@ def show_april10_capacity(traffic_df, station_order):
     # Load runtime templates
     templates = load_runtime_templates()
     
-    with tab1:
+    # Track tab index
+    tab_idx = 0
+    
+    # Tab 0: Freight Only
+    with tabs[tab_idx]:
         st.write("""
         **Time Window:** April 10, 2024 05:00 → April 11, 2024 05:00 (24 hours)
         
@@ -1238,92 +1748,17 @@ def show_april10_capacity(traffic_df, station_order):
         # Show train summaries
         show_train_summaries(traffic_df, our_trains, stop_stations)
     
-    # Combined view tab (only if combined data available)
-    if has_combined:
-        with tab2:
-            st.write("""
-            **Combined Freight + Passenger Traffic**
-            
-            Shows the **complete picture** of track usage on April 10, 2024:
-            - 🔴 **Red** = Our route train FROM Södertälje (202404108312)
-            - 🔵 **Blue** = Our route train TO Södertälje (202404108396)
-            - ⚫ **Dark Gray** = Other freight trains (GT)
-            - 🟣 **Purple** = Passenger trains (RST - regional/intercity)
-            - 🟡 **Yellow highlight** = Stations where our trains have planned stops
-            
-            Passenger trains are filtered to those using 10+ stations on our route.
-            """)
-            
-            # Stats for combined
-            gt_trains = combined_df[combined_df['train_type'] == 'GT']['taglank'].nunique()
-            rst_trains = combined_df[combined_df['train_type'] == 'RST']['taglank'].nunique()
-            
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Freight Trains (GT)", gt_trains)
-            with col2:
-                st.metric("Passenger Trains (RST)", rst_trains)
-            with col3:
-                st.metric("Total Trains", combined_df['taglank'].nunique())
-            with col4:
-                st.metric("Total Records", len(combined_df))
-            
-            st.divider()
-            
-            # Display options for combined view
-            st.subheader("⚙️ Display Options")
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                combined_mode = st.radio(
-                    "Display Mode",
-                    options=['Lines + Points', 'Lines Only', 'Points Only'],
-                    index=1,  # Default to lines only for cleaner view
-                    horizontal=True,
-                    key="combined_mode"
-                )
-            
-            with col2:
-                show_freight = st.checkbox("Show Freight (GT)", value=True, key="combined_freight")
-            
-            with col3:
-                show_passenger = st.checkbox("Show Passenger (RST)", value=True, key="combined_passenger")
-            
-            with col4:
-                combined_highlight = st.checkbox("Highlight Stop Stations", value=True, key="combined_highlight")
-            
-            st.divider()
-            
-            # Build combined traffic diagram
-            fig = build_combined_traffic_diagram(
-                combined_df, station_order, station_to_y, stop_stations, our_trains,
-                combined_mode, show_freight, show_passenger, combined_highlight
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Summary by train type
-            st.divider()
-            st.subheader("📊 Traffic Summary")
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.write("**Freight Traffic (GT)**")
-                gt_data = combined_df[combined_df['train_type'] == 'GT']
-                st.write(f"- {gt_data['taglank'].nunique()} trains")
-                st.write(f"- {len(gt_data)} station records")
-            
-            with col2:
-                st.write("**Passenger Traffic (RST)**")
-                rst_data = combined_df[combined_df['train_type'] == 'RST']
-                st.write(f"- {rst_data['taglank'].nunique()} trains")
-                st.write(f"- {len(rst_data)} station records")
-        
-        # Plan new train tab is now tab3
-        plan_tab = tab3
-    else:
-        plan_tab = tab2
+    tab_idx += 1
     
-    with plan_tab:
+    # Timetable view tab (if available)
+    if has_timetable:
+        with tabs[tab_idx]:
+            show_timetable_view(timetable_result, station_order, station_to_y, stop_stations, 
+                               our_trains, traffic_df)
+        tab_idx += 1
+    
+    # Plan new train tab (always last)
+    with tabs[tab_idx]:
         st.write("""
         **Plan a New Train Path**
         
@@ -1510,150 +1945,6 @@ def generate_planned_train_path(template, direction, dep_hour, dep_minute, stops
         'stops': stops,
         'stop_duration': stop_duration
     }
-
-
-def build_combined_traffic_diagram(combined_df, station_order, station_to_y, stop_stations, our_trains,
-                                    show_mode, show_freight, show_passenger, highlight_stop_stations):
-    """Build combined freight + passenger traffic diagram."""
-    
-    fig = go.Figure()
-    
-    # Base time for X-axis (midnight April 10)
-    base_time = pd.Timestamp('2024-04-10 00:00:00')
-    
-    # Determine plot mode
-    if show_mode == 'Lines + Points':
-        plot_mode = 'lines+markers'
-    elif show_mode == 'Lines Only':
-        plot_mode = 'lines'
-    else:
-        plot_mode = 'markers'
-    
-    # Add horizontal bands for stop stations
-    if highlight_stop_stations and len(stop_stations) > 0:
-        for station in stop_stations:
-            if station in station_to_y:
-                y_pos = station_to_y[station]
-                fig.add_hrect(
-                    y0=y_pos - 0.4,
-                    y1=y_pos + 0.4,
-                    fillcolor="rgba(255, 215, 0, 0.3)",
-                    line_width=0,
-                    layer="below"
-                )
-    
-    # Process each train
-    trains_to_plot = combined_df['taglank'].unique()
-    
-    for taglank in trains_to_plot:
-        train_data = combined_df[combined_df['taglank'] == taglank].sort_values('plandatumtid')
-        
-        if len(train_data) < 1:
-            continue
-        
-        train_type = train_data['train_type'].iloc[0]
-        is_our = str(taglank) in our_trains
-        
-        # Filter by type
-        if train_type == 'GT' and not show_freight and not is_our:
-            continue
-        if train_type == 'RST' and not show_passenger:
-            continue
-        
-        # Calculate time as hours from midnight April 10
-        times = train_data['plandatumtid']
-        x_vals = [(t - base_time).total_seconds() / 3600 for t in times]
-        
-        # Filter to 5am-5am window and map stations
-        y_vals = []
-        stations = []
-        x_filtered = []
-        for i, (_, row) in enumerate(train_data.iterrows()):
-            station = row['plats']
-            x_time = x_vals[i]
-            if station in station_to_y and 5 <= x_time <= 29:
-                y_vals.append(station_to_y[station])
-                stations.append(station)
-                x_filtered.append(x_time)
-        
-        if len(y_vals) < 1:
-            continue
-        
-        # Determine styling based on train type
-        if is_our:
-            if str(taglank) == '202404108396':
-                color = '#2E86AB'  # Blue
-                name = f"🔵 {taglank} (TO Södertälje)"
-            else:
-                color = '#E94F37'  # Red
-                name = f"🔴 {taglank} (FROM Södertälje)"
-            width = 3
-            opacity = 1.0
-            marker_size = 8
-        elif train_type == 'GT':
-            color = '#555555'  # Dark gray for other freight
-            width = 1.5
-            opacity = 0.5
-            name = f"GT: {taglank}"
-            marker_size = 4
-        else:  # RST (passenger)
-            color = '#9B59B6'  # Purple for passenger
-            width = 1
-            opacity = 0.4
-            name = f"RST: {taglank}"
-            marker_size = 3
-        
-        # Create hover text
-        hover_texts = []
-        for x, y, s in zip(x_filtered, y_vals, stations):
-            h = int(x) % 24
-            m = int((x % 1) * 60)
-            day = "Apr 10" if 5 <= x < 24 else "Apr 11"
-            type_label = "Freight" if train_type == 'GT' else "Passenger"
-            hover_texts.append(f"<b>{taglank}</b><br>{type_label}<br>{s}<br>{day} {h:02d}:{m:02d}")
-        
-        fig.add_trace(go.Scatter(
-            x=x_filtered,
-            y=y_vals,
-            mode=plot_mode,
-            name=name,
-            line=dict(color=color, width=width),
-            marker=dict(size=marker_size, color=color),
-            opacity=opacity,
-            text=hover_texts,
-            hovertemplate="%{text}<extra></extra>",
-            showlegend=is_our  # Only show legend for our trains
-        ))
-    
-    # Update layout
-    fig.update_layout(
-        title="Combined Traffic (Freight + Passenger) - April 10 05:00 to April 11 05:00",
-        xaxis_title="Time",
-        yaxis_title="Station",
-        height=900,
-        xaxis=dict(
-            range=[4.5, 29.5],
-            dtick=2,
-            ticktext=[f"{int(h % 24):02d}:00" + (" +1d" if h >= 24 else "") for h in range(5, 30, 2)],
-            tickvals=list(range(5, 30, 2)),
-            gridcolor='lightgray',
-            zeroline=False
-        ),
-        yaxis=dict(
-            tickmode='array',
-            tickvals=list(range(len(station_order))),
-            ticktext=[f"{'🟡 ' if s in stop_stations else ''}{s}" for s in station_order['station'].tolist()],
-            autorange='reversed',
-            gridcolor='lightgray'
-        ),
-        legend=dict(orientation='h', yanchor='bottom', y=1.02),
-        hovermode='closest'
-    )
-    
-    # Add midnight line
-    fig.add_vline(x=24, line_dash="dash", line_color="red", annotation_text="Midnight", annotation_position="top")
-    
-    return fig
 
 
 def build_traffic_diagram(traffic_df, station_order, station_to_y, stop_stations, our_trains,
